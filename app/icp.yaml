@@ -1,0 +1,43 @@
+# RevCrew ICP Rubric — editable scoring configuration
+# This is itself a consulting artifact: tune weights and criteria to match your ideal customer profile.
+
+target_segments:
+  - "B2B SaaS"
+  - "11-200 employees"
+  exclude:
+    - "Agencies"
+    - "Marketplaces"
+    - "Non-profits"
+
+criteria:
+  industry_fit:
+    weight: 25
+    description: "How well the prospect's industry matches our target segments"
+  size_fit:
+    weight: 20
+    description: "Company size alignment (11-200 employees ideal)"
+  tech_signals:
+    weight: 20
+    description: "Technology stack signals indicating sophistication and need"
+  buying_triggers:
+    weight: 20
+    description: "Recent events suggesting purchase intent (funding, hiring, expansion)"
+  seniority_of_contact:
+    weight: 15
+    description: "Seniority level of the contact (VP+ scores higher)"
+
+tiers:
+  A:
+    min_score: 80
+    description: "Strong fit — fast-track to outreach"
+  B:
+    min_score_from_config: true  # uses ICP_SCORE_THRESHOLD from config
+    description: "Moderate fit — nurture or lower-priority outreach"
+  C:
+    description: "Weak fit — nurture only"
+
+hard_disqualifiers:
+  - "Company is an agency or marketing services firm"
+  - "Company has fewer than 5 employees"
+  - "Company is a direct competitor"
+  - "Contact email domain is a personal email (gmail, yahoo, etc.)"

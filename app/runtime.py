@@ -57,4 +57,27 @@ def discover_runtime_objects(
                 f"[runtime] Warning: could not load {agents_dir}/{module_info.name}.py — {exc}"
             )
 
-    return agents, teams, workflows, schedulers, routers
+    # Deduplicate by object id (Workflow/Team objects contain Agent references
+    # that get picked up as module-level members)
+    seen_agents = set()
+    unique_agents = []
+    for a in agents:
+        if id(a) not in seen_agents:
+            seen_agents.add(id(a))
+            unique_agents.append(a)
+
+    seen_teams = set()
+    unique_teams = []
+    for t in teams:
+        if id(t) not in seen_teams:
+            seen_teams.add(id(t))
+            unique_teams.append(t)
+
+    seen_workflows = set()
+    unique_workflows = []
+    for w in workflows:
+        if id(w) not in seen_workflows:
+            seen_workflows.add(id(w))
+            unique_workflows.append(w)
+
+    return unique_agents, unique_teams, unique_workflows, schedulers, routers

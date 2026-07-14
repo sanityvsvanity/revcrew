@@ -1,0 +1,122 @@
+[
+  {
+    "domain": "meridianhq.com",
+    "name": "Meridian HQ",
+    "industry": "HR Technology",
+    "size": "75 employees",
+    "founded": 2021,
+    "headquarters": "San Francisco, CA",
+    "tech_stack": ["Salesforce", "Outreach", "Slack", "AWS"],
+    "funding": "Series A, $12M (2025)",
+    "description": "Meridian HQ is a modern HR platform that helps mid-market companies manage hybrid workforce operations. Their platform combines payroll, benefits, and performance management in a single dashboard.",
+    "recent_news": ["Raised $12M Series A led by a16z", "Hiring 3 Account Executives for enterprise push", "Launched AI-powered performance review module"]
+  },
+  {
+    "domain": "stackbridge.io",
+    "name": "StackBridge",
+    "industry": "DevOps / Cloud Infrastructure",
+    "size": "35 employees",
+    "founded": 2022,
+    "headquarters": "Austin, TX",
+    "tech_stack": ["HubSpot", "AWS", "Kubernetes", "Terraform"],
+    "funding": "Seed, $4.5M (2024)",
+    "description": "StackBridge provides infrastructure-as-code automation for DevOps teams. Their platform helps engineering organizations deploy and manage cloud infrastructure with minimal manual configuration.",
+    "recent_news": ["Launched enterprise tier with SSO and audit logs", "Hiring first SDR to build outbound motion", "Featured in Gartner Cool Vendors 2025"]
+  },
+  {
+    "domain": "northbeam.com",
+    "name": "NorthBeam Analytics",
+    "industry": "Data Analytics",
+    "size": "120 employees",
+    "founded": 2019,
+    "headquarters": "Chicago, IL",
+    "tech_stack": ["Salesforce", "Marketo", "Snowflake", "Tableau"],
+    "funding": "Series B, $28M (2024)",
+    "description": "NorthBeam provides embedded analytics for B2B SaaS companies. Their SDK lets product teams add dashboards and reports to their applications in days instead of months.",
+    "recent_news": ["Posted job for RevOps Manager to build revenue infrastructure", "Sponsoring SaaStr Annual 2025", "Crossed 200+ customer milestone"]
+  },
+  {
+    "domain": "clearstep.co",
+    "name": "ClearStep",
+    "industry": "Compliance & Security",
+    "size": "22 employees",
+    "founded": 2023,
+    "headquarters": "London, UK",
+    "tech_stack": ["Pipedrive", "Intercom", "GCP"],
+    "funding": "Seed, $2.8M (2024)",
+    "description": "ClearStep automates SOC 2 and ISO 27001 compliance for startups. Their platform connects to cloud infrastructure and SaaS tools to continuously monitor compliance posture.",
+    "recent_news": ["Launched new website and rebrand", "Currently evaluating CRM upgrade from Pipedrive", "Hiring 2 SDRs for EMEA expansion"]
+  },
+  {
+    "domain": "tidepool.io",
+    "name": "Tidepool",
+    "industry": "Climate Technology",
+    "size": "8 employees",
+    "founded": 2024,
+    "headquarters": "Portland, OR",
+    "tech_stack": ["None (spreadsheets)"],
+    "funding": "Pre-seed, $750K (2024)",
+    "description": "Tidepool builds carbon accounting software for small and medium manufacturers. Their tool helps factories measure, report, and reduce their carbon footprint.",
+    "recent_news": ["Pre-seed funding from Climate Capital", "Founder-led sales, no CRM in place", "Pilot with 3 manufacturing partners"]
+  },
+  {
+    "domain": "formstack.com",
+    "name": "FormStack",
+    "industry": "Productivity Software",
+    "size": "350 employees",
+    "founded": 2016,
+    "headquarters": "Denver, CO",
+    "tech_stack": ["HubSpot Enterprise", "6sense", "Salesforce", "Outreach"],
+    "funding": "Series C, $65M (2023)",
+    "description": "FormStack is a no-code form and workflow automation platform. Their enterprise product serves 2,000+ customers across healthcare, finance, and government.",
+    "recent_news": ["Enterprise expansion into EMEA and APAC", "Evaluating AI-powered sales tools", "Hiring 5 enterprise AEs"]
+  },
+  {
+    "domain": "lumenlaw.com",
+    "name": "Lumen Law",
+    "industry": "Legal Technology",
+    "size": "85 employees",
+    "founded": 2020,
+    "headquarters": "Toronto, Canada",
+    "tech_stack": ["Clio", "Gmail", "Zoom"],
+    "funding": "Series A, $15M (2024)",
+    "description": "Lumen Law provides practice management software for mid-size law firms. Their platform handles case management, billing, and client communication.",
+    "recent_news": ["Expanding SDR team from 2 to 6 reps", "Evaluating first outbound sales tool", "Opening US office in New York"]
+  },
+  {
+    "domain": "brightdigital.com.au",
+    "name": "Bright Digital",
+    "industry": "Digital Agency",
+    "size": "30 employees",
+    "founded": 2018,
+    "headquarters": "Melbourne, Australia",
+    "tech_stack": ["HubSpot (client instances)", "Figma", "Webflow"],
+    "funding": "Bootstrapped",
+    "description": "Bright Digital is a full-service digital agency specializing in web design, branding, and marketing for B2B tech companies.",
+    "recent_news": ["Growing client base — needs outbound for own pipeline", "Hiring first dedicated sales hire", "Considering productizing agency IP into SaaS"]
+  },
+  {
+    "domain": "gmail.com",
+    "name": "Freelance Consulting",
+    "industry": "Consulting",
+    "size": "1 employee",
+    "founded": 2023,
+    "headquarters": "Remote",
+    "tech_stack": ["Gmail", "Calendly"],
+    "funding": "N/A",
+    "description": "Independent sales consultant offering fractional sales leadership to early-stage startups.",
+    "recent_news": ["Personal email domain — not a company", "Solo consultant, no team"]
+  },
+  {
+    "domain": "revops-competitor.com",
+    "name": "RevOps Competitor Inc",
+    "industry": "Sales Technology",
+    "size": "75 employees",
+    "founded": 2021,
+    "headquarters": "New York, NY",
+    "tech_stack": ["Proprietary", "AWS"],
+    "funding": "Series B, $40M (2024)",
+    "description": "Direct competitor offering AI-powered revenue operations platform for B2B sales teams.",
+    "recent_news": ["Direct competitor in the GTM engineering space", "Launched competing multi-agent product"]
+  }
+]
