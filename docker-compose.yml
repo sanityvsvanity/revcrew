@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    ports:
+      - "5541:5432"
+    environment:
+      POSTGRES_DB: revcrew
+      POSTGRES_USER: revcrew
+      POSTGRES_PASSWORD: revcrew
+    volumes:
+      - revcrew_pgdata:/var/lib/postgresql/data
+
+volumes:
+  revcrew_pgdata:
