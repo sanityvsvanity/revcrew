@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.db
+tmp/
+credentials*
+.claude/
+.vscode/
+topology.json
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
