@@ -1,4 +1,4 @@
-"""Webhook signature verification — shared secret and HMAC-SHA256."""
+"""Webhook signature verification: shared secret and HMAC-SHA256."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from app.config import settings
 def verify_shared_secret(header_value: str, secret: str) -> bool:
     """Verify a shared secret using constant-time comparison.
 
-    Rule: missing/empty secret ⇒ reject when ENV=prod, warn+pass when dev.
+    Rule: missing/empty secret => reject when ENV=prod, warn+pass when dev.
     """
     if not secret:
         if settings.ENV == "prod":
@@ -24,7 +24,7 @@ def verify_shared_secret(header_value: str, secret: str) -> bool:
 def verify_hmac_sha256(body: bytes, signature: str, secret: str) -> bool:
     """Verify an HMAC-SHA256 signature against a body.
 
-    Rule: missing/empty secret ⇒ reject when ENV=prod, warn+pass when dev.
+    Rule: missing/empty secret => reject when ENV=prod, warn+pass when dev.
     """
     if not secret:
         if settings.ENV == "prod":

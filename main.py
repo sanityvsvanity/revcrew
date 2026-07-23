@@ -1,4 +1,4 @@
-"""RevCrew — AI revenue crew for B2B sales teams. Agno multi-agent system."""
+"""RevCrew: AI revenue crew for B2B sales teams. Agno multi-agent system."""
 
 from contextlib import asynccontextmanager
 
@@ -14,7 +14,7 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown — start schedulers, connect toolboxes."""
+    """Startup/shutdown: start schedulers, connect toolboxes."""
     # Schedulers are started by AgentOS when scheduler=True
     yield
 
@@ -28,7 +28,7 @@ def create_app() -> FastAPI:
     agent_os = AgentOS(
         id="revcrew",
         name="RevCrew",
-        description="An AI revenue crew for B2B sales teams — HubSpot, Slack & Instantly, human-in-the-loop by design.",
+        description="An AI revenue crew for B2B sales teams: HubSpot, Slack & Instantly, human-in-the-loop by design.",
         agents=agents,
         teams=teams,
         workflows=workflows,
@@ -36,7 +36,16 @@ def create_app() -> FastAPI:
     )
     app = agent_os.get_app()
 
-    # Mount discovered API routers (webhooks, etc.)
+    # Mount webhook and intake routers
+    from app.webhooks.instantly import router as instantly_router
+    from app.webhooks.intake import router as intake_router
+    from app.webhooks.slack import router as slack_router
+
+    app.include_router(slack_router)
+    app.include_router(instantly_router)
+    app.include_router(intake_router)
+
+    # Mount any additional routers discovered in agents/
     for router in routers:
         app.include_router(router)
 

@@ -1,4 +1,4 @@
-"""Slack webhook endpoints — events, actions, and slash commands."""
+"""Slack webhook endpoints: events, actions, and slash commands."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ def _verify_slack_signature(body: bytes, headers: dict) -> bool:
 
 @router.post("/events")
 async def slack_events(request: Request):
-    """Handle Slack Events API — URL verification, app mentions, DMs."""
+    """Handle Slack Events API: URL verification, app mentions, DMs."""
     body = await request.body()
 
     # URL verification challenge
@@ -82,7 +82,7 @@ async def slack_events(request: Request):
 
 @router.post("/actions")
 async def slack_actions(request: Request):
-    """Handle Slack interactivity — approval button clicks."""
+    """Handle Slack interactivity: approval button clicks."""
     body = await request.body()
 
     # Verify signature
@@ -124,11 +124,11 @@ async def slack_commands(request: Request):
     return JSONResponse({"text": f"Running `/demo {command_text}`...", "response_type": "ephemeral"})
 
 
-# ── Background handlers ──
+# Background handlers
 
 
 async def _handle_incoming_message(event: dict):
-    """Route incoming Slack messages to gtm_desk."""
+    """Route incoming Slack mentions and DMs to the gtm_desk team."""
     from app.integrations.registry import get_chat
 
     text = event.get("text", "")
@@ -141,56 +141,94 @@ async def _handle_incoming_message(event: dict):
         text = parts[1].strip() if len(parts) > 1 else text
 
     chat = get_chat()
-    await chat.post_message(
-        channel=channel,
-        text=f"🤖 Processing: _{text[:100]}_...",
-        thread_ts=thread_ts,
-    )
+
+    if not settings.ANTHROPIC_API_KEY:
+        await chat.post_message(
+            channel=channel,
+            text=(
+                "Demo mode without an Anthropic key: the crew cannot answer "
+                "free-form questions. Try /demo new-lead, or set "
+                "ANTHROPIC_API_KEY to chat with the team."
+            ),
+            thread_ts=thread_ts,
+        )
+        return
+
+    from agents.copilot import gtm_desk
+
+    run = await gtm_desk.arun(input=text)
+    reply = run.content if isinstance(run.content, str) else str(run.content)
+    await chat.post_message(channel=channel, text=reply, thread_ts=thread_ts)
 
 
 async def _handle_approval_action(run_id: str, action: str, payload: dict):
-    """Resolve an approval from a Slack button click."""
+    """Resolve an approval from a Slack button click and finish the run."""
     from app.approvals import resolve_approval
     from app.integrations.registry import get_chat
 
-    result = await resolve_approval(run_id, action)
+    status_map = {"approve": "approved", "edit": "edit_requested", "reject": "rejected"}
+    status = status_map.get(action, action)
+    await resolve_approval(run_id, status)
+
     channel = payload.get("channel", {}).get("id", "")
     message_ts = payload.get("message", {}).get("ts", "")
+    user = payload.get("user", {}).get("name", "a rep")
 
     chat = get_chat()
-    action_labels = {"approve": "✅ Approved", "edit": "✏️ Edit requested", "reject": "❌ Rejected"}
-    label = action_labels.get(action, f"Action: {action}")
-
+    labels = {"approved": "Approved", "edit_requested": "Edit requested", "rejected": "Rejected"}
     await chat.update_message(
         channel=channel,
         ts=message_ts,
-        text=f"{label} — {result.get('status', 'processed')}",
+        text=f"{labels.get(status, status)} by {user}.",
     )
+
+    # Approval unblocks the push: campaign to outreach, records to CRM
+    if status == "approved":
+        from demo.pipeline import complete_run
+
+        result = await complete_run(run_id)
+        if result:
+            await chat.post_message(
+                channel=channel or "#gtm-desk",
+                text=(
+                    f"Pushed {result['lead']['company']}: campaign "
+                    f"{result['campaign']['id']} created paused, contact, company, "
+                    f"deal and note logged to CRM."
+                ),
+                thread_ts=message_ts or None,
+            )
 
 
 async def _handle_demo_command(command: str, channel_id: str, user_id: str):
-    """Handle /demo subcommands."""
+    """Handle /demo subcommands by driving the real demo pipeline."""
     from app.integrations.registry import get_chat
+    from demo.pipeline import inject_reply, next_lead_index, reset_state, start_run
 
     chat = get_chat()
 
     if command == "new-lead":
+        index = await next_lead_index()
+        run = await start_run(lead_index=index, channel=channel_id or "#gtm-desk")
+        lead, score = run["lead"], run["score"]
         await chat.post_message(
             channel=channel_id,
-            text="🔍 Running lead pipeline on next seed lead...",
+            text=(
+                f"New lead: {lead['first_name']} {lead['last_name']}, {lead['title']} "
+                f"at {lead['company']}. Scored {score.score}/100, Tier {score.tier}. "
+                f"Sequence drafted, waiting on your approval above."
+            ),
         )
     elif command == "reply":
+        dispatched = await inject_reply()
         await chat.post_message(
             channel=channel_id,
-            text="📨 Injecting canned reply → triage...",
+            text=f"Injected a canned reply through the event outbox, dispatched {dispatched} event(s).",
         )
     elif command == "reset":
-        await chat.post_message(
-            channel=channel_id,
-            text="🔄 Mock state reset.",
-        )
+        await reset_state()
+        await chat.post_message(channel=channel_id, text="Mock state cleared.")
     else:
         await chat.post_message(
             channel=channel_id,
-            text=f"Usage: `/demo new-lead | reply | reset`",
+            text="Usage: /demo new-lead | reply | reset",
         )

@@ -6,7 +6,7 @@ psycopg[binary]
 httpx
 apscheduler
 ddgs
-pydantic
+pydantic[email]
 pydantic-settings
 python-dotenv
 opentelemetry-api==1.42.0
