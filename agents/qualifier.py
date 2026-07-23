@@ -1,4 +1,4 @@
-"""Qualifier agent — scores leads against ICP rubric, produces LeadScore."""
+"""Qualifier agent: scores leads against ICP rubric, produces LeadScore."""
 
 from agno.agent import Agent
 from agno.models.anthropic import Claude

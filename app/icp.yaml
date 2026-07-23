@@ -1,4 +1,4 @@
-# RevCrew ICP Rubric — editable scoring configuration
+# RevCrew ICP Rubric: editable scoring configuration
 # This is itself a consulting artifact: tune weights and criteria to match your ideal customer profile.
 
 target_segments:
@@ -29,12 +29,12 @@ criteria:
 tiers:
   A:
     min_score: 80
-    description: "Strong fit — fast-track to outreach"
+    description: "Strong fit: fast-track to outreach"
   B:
     min_score_from_config: true  # uses ICP_SCORE_THRESHOLD from config
-    description: "Moderate fit — nurture or lower-priority outreach"
+    description: "Moderate fit: nurture or lower-priority outreach"
   C:
-    description: "Weak fit — nurture only"
+    description: "Weak fit: nurture only"
 
 hard_disqualifiers:
   - "Company is an agency or marketing services firm"

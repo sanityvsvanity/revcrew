@@ -1,4 +1,4 @@
-"""CRM toolkit — Agno tools wrapping CRMPort for agent use."""
+"""CRM toolkit: Agno tools wrapping CRMPort for agent use."""
 
 from __future__ import annotations
 

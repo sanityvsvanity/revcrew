@@ -1,4 +1,4 @@
-"""Outreach writer agent — drafts email sequences, produces SequenceDraft."""
+"""Outreach writer agent: drafts email sequences, produces SequenceDraft."""
 
 from agno.agent import Agent
 from agno.models.anthropic import Claude
@@ -18,7 +18,7 @@ Each step should include:
 - wait_days: days to wait before the next step (1-3 days typical)
 
 Guidelines:
-- Step 1: Value-first opener — reference a specific insight from the brief
+- Step 1: Value-first opener: reference a specific insight from the brief
 - Step 2: Social proof or case study relevant to their industry
 - Step 3: Soft break-up with a clear CTA
 

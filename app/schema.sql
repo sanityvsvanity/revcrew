@@ -1,4 +1,4 @@
--- RevCrew schema — idempotent (CREATE TABLE IF NOT EXISTS)
+-- RevCrew schema: idempotent (CREATE TABLE IF NOT EXISTS)
 
 CREATE TABLE IF NOT EXISTS mock_crm_objects (
     id SERIAL PRIMARY KEY,

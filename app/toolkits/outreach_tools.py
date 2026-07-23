@@ -1,4 +1,4 @@
-"""Outreach toolkit — Agno tools wrapping OutreachPort for agent use."""
+"""Outreach toolkit: Agno tools wrapping OutreachPort for agent use."""
 
 from __future__ import annotations
 

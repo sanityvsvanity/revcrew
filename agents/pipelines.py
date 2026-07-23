@@ -1,4 +1,4 @@
-"""Workflow pipelines — lead_pipeline and reply_triage."""
+"""Workflow pipelines: lead_pipeline and reply_triage."""
 
 from agno.workflow import Condition, Step, Workflow
 
@@ -100,7 +100,7 @@ async def _nurture_log_step(ctx) -> dict:
     chat = get_chat()
     await chat.post_message(
         channel="#gtm-desk",
-        text="ℹ️ Lead scored below threshold — added to nurture sequence.",
+        text="ℹ️ Lead scored below threshold: added to nurture sequence.",
     )
     return {"action": "nurture", "status": "logged"}
 

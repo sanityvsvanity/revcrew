@@ -1,4 +1,4 @@
-"""CRM Scribe agent — writes to HubSpot, sole holder of CRM write tools."""
+"""CRM Scribe agent: writes to HubSpot, sole holder of CRM write tools."""
 
 from agno.agent import Agent
 from agno.models.anthropic import Claude
@@ -16,7 +16,7 @@ from app.toolkits.crm_tools import (
 crm_scribe = Agent(
     name="crm_scribe",
     model=Claude(id=settings.MODEL_FAST),
-    description="Logs pipeline outputs to HubSpot — contacts, companies, deals, notes, and tasks.",
+    description="Logs pipeline outputs to HubSpot: contacts, companies, deals, notes, and tasks.",
     instructions="""You are a CRM data entry specialist. Given pipeline outputs (account brief, lead score, sequence draft, triage results), log everything to HubSpot.
 
 Your responsibilities:
@@ -27,7 +27,7 @@ Your responsibilities:
 - Associate contacts with companies and deals
 
 Use the available HubSpot tools. Always search before creating to avoid duplicates.
-Be thorough — every pipeline action should leave a CRM trail.""",
+Be thorough: every pipeline action should leave a CRM trail.""",
     tools=[
         hubspot_upsert_contact,
         hubspot_upsert_company,

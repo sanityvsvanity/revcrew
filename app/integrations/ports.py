@@ -1,4 +1,4 @@
-"""Integration port protocols — abstract interfaces for CRM, outreach, and chat."""
+"""Integration port protocols: abstract interfaces for CRM, outreach, and chat."""
 
 from __future__ import annotations
 

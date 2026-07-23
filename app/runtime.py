@@ -1,4 +1,4 @@
-"""Runtime object discovery — scans agents/ for module-level Agno objects."""
+"""Runtime object discovery: scans agents/ for module-level Agno objects."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def discover_runtime_objects(
                     routers.append(obj)
         except Exception as exc:
             print(
-                f"[runtime] Warning: could not load {agents_dir}/{module_info.name}.py — {exc}"
+                f"[runtime] Warning: could not load {agents_dir}/{module_info.name}.py: {exc}"
             )
 
     # Deduplicate by object id (Workflow/Team objects contain Agent references

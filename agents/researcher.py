@@ -1,4 +1,4 @@
-"""Researcher agent — researches target accounts and produces AccountBrief."""
+"""Researcher agent: researches target accounts and produces AccountBrief."""
 
 from agno.agent import Agent
 from agno.models.anthropic import Claude

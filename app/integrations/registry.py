@@ -1,4 +1,4 @@
-"""Integration registry — returns mock or live adapters based on DEMO_MODE."""
+"""Integration registry: returns mock or live adapters based on DEMO_MODE."""
 
 from __future__ import annotations
 

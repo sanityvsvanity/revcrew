@@ -1,4 +1,4 @@
-"""Research toolkit — Agno tools for web search and demo-data enrichment."""
+"""Research toolkit: Agno tools for web search and demo-data enrichment."""
 
 from __future__ import annotations
 
