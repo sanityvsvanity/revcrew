@@ -1,4 +1,4 @@
-"""Mock HubSpot adapter — writes to mock_crm_objects table, logs to console."""
+"""Mock HubSpot adapter: writes to mock_crm_objects table, logs to console."""
 
 from __future__ import annotations
 
@@ -10,34 +10,62 @@ from app.db import get_pool
 
 
 class MockHubSpot:
-    """In-memory + Postgres-backed mock CRM."""
+    """Postgres-backed mock CRM."""
 
     async def upsert_contact(
         self, email: str, properties: dict[str, Any]
     ) -> dict[str, Any]:
+        existing = await self.search_contact(email)
+        if existing:
+            existing["properties"].update(properties)
+            pool = await get_pool()
+            async with pool.connection() as conn:
+                await conn.execute(
+                    "UPDATE mock_crm_objects SET payload = %s "
+                    "WHERE type = 'contact' AND payload->>'email' = %s",
+                    (json.dumps(existing), email),
+                )
+            print(f"[MOCK hubspot] updated contact '{email}' (id={existing['id']})")
+            return existing
         contact_id = str(uuid.uuid4())[:8]
         payload = {"id": contact_id, "email": email, "properties": properties}
         pool = await get_pool()
         async with pool.connection() as conn:
             await conn.execute(
-                "INSERT INTO mock_crm_objects (type, payload) VALUES ($1, $2)",
+                "INSERT INTO mock_crm_objects (type, payload) VALUES (%s, %s)",
                 ("contact", json.dumps(payload)),
             )
-        print(f"[MOCK hubspot] upserted contact '{email}' (id={contact_id})")
+        print(f"[MOCK hubspot] created contact '{email}' (id={contact_id})")
         return payload
 
     async def upsert_company(
         self, domain: str, properties: dict[str, Any]
     ) -> dict[str, Any]:
-        company_id = str(uuid.uuid4())[:8]
-        payload = {"id": company_id, "domain": domain, "properties": properties}
         pool = await get_pool()
         async with pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT payload FROM mock_crm_objects "
+                "WHERE type = 'company' AND payload->>'domain' = %s",
+                (domain,),
+            )
+            row = await cur.fetchone()
+            if row:
+                existing = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+                existing.setdefault("properties", {}).update(properties)
+                await conn.execute(
+                    "UPDATE mock_crm_objects SET payload = %s "
+                    "WHERE type = 'company' AND payload->>'domain' = %s",
+                    (json.dumps(existing), domain),
+                )
+                print(f"[MOCK hubspot] updated company '{domain}' (id={existing.get('id')})")
+                return existing
+            company_id = str(uuid.uuid4())[:8]
+            payload = {"id": company_id, "domain": domain, "properties": properties}
             await conn.execute(
-                "INSERT INTO mock_crm_objects (type, payload) VALUES ($1, $2)",
+                "INSERT INTO mock_crm_objects (type, payload) VALUES (%s, %s)",
                 ("company", json.dumps(payload)),
             )
-        print(f"[MOCK hubspot] upserted company '{domain}' (id={company_id})")
+        print(f"[MOCK hubspot] created company '{domain}' (id={company_id})")
         return payload
 
     async def create_deal(
@@ -49,7 +77,7 @@ class MockHubSpot:
         pool = await get_pool()
         async with pool.connection() as conn:
             await conn.execute(
-                "INSERT INTO mock_crm_objects (type, payload) VALUES ($1, $2)",
+                "INSERT INTO mock_crm_objects (type, payload) VALUES (%s, %s)",
                 ("deal", json.dumps(payload)),
             )
         print(f"[MOCK hubspot] created deal '{name}' ({amount}) (id={deal_id})")
@@ -68,7 +96,7 @@ class MockHubSpot:
         pool = await get_pool()
         async with pool.connection() as conn:
             await conn.execute(
-                "INSERT INTO mock_crm_objects (type, payload) VALUES ($1, $2)",
+                "INSERT INTO mock_crm_objects (type, payload) VALUES (%s, %s)",
                 ("note", json.dumps(payload)),
             )
         print(f"[MOCK hubspot] logged note on {object_type}/{object_id}")
@@ -82,7 +110,7 @@ class MockHubSpot:
         pool = await get_pool()
         async with pool.connection() as conn:
             await conn.execute(
-                "INSERT INTO mock_crm_objects (type, payload) VALUES ($1, $2)",
+                "INSERT INTO mock_crm_objects (type, payload) VALUES (%s, %s)",
                 ("task", json.dumps(payload)),
             )
         print(f"[MOCK hubspot] created task '{title}'")
@@ -91,18 +119,19 @@ class MockHubSpot:
     async def associate(
         self, from_type: str, from_id: str, to_type: str, to_id: str
     ) -> None:
-        print(f"[MOCK hubspot] associated {from_type}/{from_id} → {to_type}/{to_id}")
+        print(f"[MOCK hubspot] associated {from_type}/{from_id} -> {to_type}/{to_id}")
 
     async def search_contact(self, email: str) -> dict[str, Any] | None:
         pool = await get_pool()
         async with pool.connection() as conn:
-            rows = await conn.execute(
-                "SELECT payload FROM mock_crm_objects WHERE type='contact' AND payload->>'email' = $1",
+            cur = await conn.execute(
+                "SELECT payload FROM mock_crm_objects "
+                "WHERE type = 'contact' AND payload->>'email' = %s",
                 (email,),
             )
-            row = await rows.fetchone()
+            row = await cur.fetchone()
             if row:
-                return json.loads(row[0])
+                return row[0] if isinstance(row[0], dict) else json.loads(row[0])
         return None
 
     async def get_timeline(
@@ -110,8 +139,11 @@ class MockHubSpot:
     ) -> list[dict[str, Any]]:
         pool = await get_pool()
         async with pool.connection() as conn:
-            rows = await conn.execute(
-                "SELECT payload FROM mock_crm_objects WHERE type='note' AND payload->>'object_id' = $1 ORDER BY created_at DESC LIMIT 20",
+            cur = await conn.execute(
+                "SELECT payload FROM mock_crm_objects "
+                "WHERE type = 'note' AND payload->>'object_id' = %s "
+                "ORDER BY created_at DESC LIMIT 20",
                 (object_id,),
             )
-            return [json.loads(row[0]) for row in await rows.fetchall()]
+            rows = await cur.fetchall()
+            return [r[0] if isinstance(r[0], dict) else json.loads(r[0]) for r in rows]

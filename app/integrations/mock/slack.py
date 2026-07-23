@@ -1,4 +1,4 @@
-"""Mock Slack adapter — writes to mock_messages table, renders Block Kit to console."""
+"""Mock Slack adapter: writes to mock_messages table, renders Block Kit to console."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from app.db import get_pool
 
 
 class MockSlack:
-    """Mock chat — messages stored in Postgres, Block Kit rendered to console."""
+    """Mock chat. Messages stored in Postgres, Block Kit rendered to console."""
 
     async def post_message(
         self, channel: str, text: str, thread_ts: str | None = None
@@ -20,11 +20,11 @@ class MockSlack:
         pool = await get_pool()
         async with pool.connection() as conn:
             await conn.execute(
-                "INSERT INTO mock_messages (channel, ts, text, payload) VALUES ($1, $2, $3, $4)",
+                "INSERT INTO mock_messages (channel, ts, text, payload) VALUES (%s, %s, %s, %s)",
                 (channel, ts, text, json.dumps(payload)),
             )
         thread_info = f" (thread: {thread_ts})" if thread_ts else ""
-        print(f"\n[MOCK slack] #{channel}{thread_info}")
+        print(f"\n[MOCK slack] #{channel.removeprefix('#')}{thread_info}")
         print(f"  {text[:200]}")
         return payload
 
@@ -37,11 +37,11 @@ class MockSlack:
         pool = await get_pool()
         async with pool.connection() as conn:
             await conn.execute(
-                "INSERT INTO mock_messages (channel, ts, text, payload) VALUES ($1, $2, $3, $4)",
+                "INSERT INTO mock_messages (channel, ts, text, payload) VALUES (%s, %s, %s, %s)",
                 (channel, ts, text, json.dumps(payload)),
             )
         thread_info = f" (thread: {thread_ts})" if thread_ts else ""
-        print(f"\n[MOCK slack] #{channel}{thread_info} [BLOCKS]")
+        print(f"\n[MOCK slack] #{channel.removeprefix('#')}{thread_info} [BLOCKS]")
         print(f"  {text}")
         return payload
 
@@ -56,9 +56,9 @@ class MockSlack:
         blocks = [
             {"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*\n{summary}"}},
             {"type": "actions", "elements": [
-                {"type": "button", "text": {"type": "plain_text", "text": "✅ Approve"}, "value": f"{run_id}:approve", "style": "primary"},
-                {"type": "button", "text": {"type": "plain_text", "text": "✏️ Edit"}, "value": f"{run_id}:edit"},
-                {"type": "button", "text": {"type": "plain_text", "text": "❌ Reject"}, "value": f"{run_id}:reject", "style": "danger"},
+                {"type": "button", "text": {"type": "plain_text", "text": "Approve"}, "value": f"{run_id}:approve", "style": "primary"},
+                {"type": "button", "text": {"type": "plain_text", "text": "Edit"}, "value": f"{run_id}:edit"},
+                {"type": "button", "text": {"type": "plain_text", "text": "Reject"}, "value": f"{run_id}:reject", "style": "danger"},
             ]},
         ]
         return await self.post_blocks(channel, blocks, thread_ts)
@@ -66,7 +66,7 @@ class MockSlack:
     async def update_message(
         self, channel: str, ts: str, text: str, blocks: list[dict[str, Any]] | None = None
     ) -> dict[str, Any]:
-        print(f"[MOCK slack] updated message {ts} in #{channel}: {text[:100]}")
+        print(f"[MOCK slack] updated message {ts} in #{channel.removeprefix('#')}: {text[:100]}")
         return {"channel": channel, "ts": ts, "text": text}
 
     def _render_blocks(self, blocks: list[dict[str, Any]]) -> str:

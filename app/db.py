@@ -16,12 +16,15 @@ _schema_path = Path(__file__).parent / "schema.sql"
 async def get_pool() -> AsyncConnectionPool:
     global _pool
     if _pool is None:
+        # Accept both plain libpq URLs and SQLAlchemy-style postgresql+psycopg://
+        conninfo = settings.DATABASE_URL.replace("postgresql+psycopg://", "postgresql://")
         _pool = AsyncConnectionPool(
-            conninfo=settings.DATABASE_URL,
+            conninfo=conninfo,
             min_size=1,
             max_size=5,
-            open=True,
+            open=False,
         )
+        await _pool.open()
         await _init_schema(_pool)
     return _pool
 

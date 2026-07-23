@@ -1,65 +1,51 @@
-"""Seed demo data into the mock database (idempotent)."""
+"""Seed demo data into the mock database. Safe to run repeatedly."""
 
 import asyncio
 import json
 from pathlib import Path
 
-from app.db import get_pool, close_pool
+from app.db import close_pool, get_pool
 
 DATA_DIR = Path(__file__).parent / "data"
+
+SEED_TYPES = ("lead", "company", "reply")
 
 
 async def seed():
     pool = await get_pool()
 
-    # Load leads
-    leads_path = DATA_DIR / "leads.json"
-    if leads_path.exists():
-        leads = json.loads(leads_path.read_text())
-        async with pool.connection() as conn:
-            for lead in leads:
-                await conn.execute(
-                    "INSERT INTO mock_crm_objects (type, payload) VALUES ('lead', $1) "
-                    "ON CONFLICT DO NOTHING",
-                    (json.dumps(lead),),
-                )
-        print(f"Seeded {len(leads)} leads")
-
-    # Load companies
-    companies_path = DATA_DIR / "companies.json"
-    if companies_path.exists():
-        companies = json.loads(companies_path.read_text())
-        async with pool.connection() as conn:
-            for company in companies:
-                await conn.execute(
-                    "INSERT INTO mock_crm_objects (type, payload) VALUES ('company', $1) "
-                    "ON CONFLICT DO NOTHING",
-                    (json.dumps(company),),
-                )
-        print(f"Seeded {len(companies)} companies")
-
-    # Load replies
-    replies_path = DATA_DIR / "replies.json"
-    if replies_path.exists():
-        replies = json.loads(replies_path.read_text())
-        async with pool.connection() as conn:
-            for reply in replies:
-                await conn.execute(
-                    "INSERT INTO mock_crm_objects (type, payload) VALUES ('reply', $1) "
-                    "ON CONFLICT DO NOTHING",
-                    (json.dumps(reply),),
-                )
-        print(f"Seeded {len(replies)} replies")
-
-    # Print counts
+    # Reset previously seeded rows so repeated runs converge on the same state
     async with pool.connection() as conn:
-        for obj_type in ("lead", "company", "reply"):
-            result = await conn.execute(
-                "SELECT COUNT(*) FROM mock_crm_objects WHERE type=$1",
+        await conn.execute(
+            "DELETE FROM mock_crm_objects WHERE type = ANY(%s)",
+            (list(SEED_TYPES),),
+        )
+
+    for obj_type, plural, filename in (
+        ("lead", "leads", "leads.json"),
+        ("company", "companies", "companies.json"),
+        ("reply", "replies", "replies.json"),
+    ):
+        path = DATA_DIR / filename
+        if not path.exists():
+            continue
+        items = json.loads(path.read_text())
+        async with pool.connection() as conn:
+            for item in items:
+                await conn.execute(
+                    "INSERT INTO mock_crm_objects (type, payload) VALUES (%s, %s)",
+                    (obj_type, json.dumps(item)),
+                )
+        print(f"Seeded {len(items)} {plural}")
+
+    async with pool.connection() as conn:
+        for obj_type, plural in (("lead", "leads"), ("company", "companies"), ("reply", "replies")):
+            cur = await conn.execute(
+                "SELECT COUNT(*) FROM mock_crm_objects WHERE type = %s",
                 (obj_type,),
             )
-            count = (await result.fetchone())[0]
-            print(f"  {obj_type}s in DB: {count}")
+            count = (await cur.fetchone())[0]
+            print(f"  {plural} in DB: {count}")
 
     await close_pool()
 

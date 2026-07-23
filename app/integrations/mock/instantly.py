@@ -1,4 +1,4 @@
-"""Mock Instantly adapter — writes to mock_campaigns table, logs to console."""
+"""Mock Instantly adapter: writes to mock_campaigns table, logs to console."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from app.db import get_pool
 
 
 class MockInstantly:
-    """Mock email outreach — campaigns stored in Postgres."""
+    """Mock email outreach. Campaigns stored in Postgres, always created paused."""
 
     async def create_campaign(
         self, name: str, steps: list[dict[str, Any]]
@@ -20,22 +20,41 @@ class MockInstantly:
         pool = await get_pool()
         async with pool.connection() as conn:
             await conn.execute(
-                "INSERT INTO mock_campaigns (campaign_id, name, payload) VALUES ($1, $2, $3)",
+                "INSERT INTO mock_campaigns (campaign_id, name, payload) VALUES (%s, %s, %s)",
                 (campaign_id, name, json.dumps(payload)),
             )
-        print(f"[MOCK instantly] created campaign '{name}' ({len(steps)} steps, id={campaign_id})")
+        print(f"[MOCK instantly] created campaign '{name}' ({len(steps)} steps, paused, id={campaign_id})")
         return payload
 
     async def add_lead(
         self, campaign_id: str, email: str, variables: dict[str, str]
     ) -> dict[str, Any]:
         lead_id = f"mock-lead-{uuid.uuid4().hex[:8]}"
-        payload = {"id": lead_id, "campaign_id": campaign_id, "email": email, "variables": variables}
+        payload = {
+            "id": lead_id,
+            "campaign_id": campaign_id,
+            "email": email,
+            "variables": variables,
+        }
+        pool = await get_pool()
+        async with pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT payload FROM mock_campaigns WHERE campaign_id = %s",
+                (campaign_id,),
+            )
+            row = await cur.fetchone()
+            if row:
+                campaign = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+                campaign.setdefault("leads", []).append(payload)
+                await conn.execute(
+                    "UPDATE mock_campaigns SET payload = %s WHERE campaign_id = %s",
+                    (json.dumps(campaign), campaign_id),
+                )
         print(f"[MOCK instantly] added lead '{email}' to campaign {campaign_id}")
         return payload
 
     async def activate_campaign(self, campaign_id: str) -> dict[str, Any]:
-        print(f"[MOCK instantly] campaign {campaign_id} activated (mock — no emails sent)")
+        print(f"[MOCK instantly] campaign {campaign_id} activated (mock, no emails sent)")
         return {"id": campaign_id, "status": "active"}
 
     async def get_campaign_stats(self, campaign_id: str) -> dict[str, Any]:
