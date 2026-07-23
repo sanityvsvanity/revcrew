@@ -1,0 +1,98 @@
+{
+  "_comment": "Canned agent outputs for demo mode. These stand in for LLM output so the demo runs deterministically with zero credentials. Every object validates against the schemas in app/schemas.py. Set DEMO_MODE=false with an Anthropic key to run the real agents instead.",
+  "lead-001": {
+    "brief": {
+      "company_name": "Meridian HQ",
+      "domain": "meridianhq.com",
+      "snapshot": "Meridian HQ is an HR tech platform for mid-market companies, around 75 employees. Closed a $12M Series A four months ago and is scaling its go-to-market team.",
+      "tech_signals": ["Salesforce CRM", "Outreach for sequencing", "Greenhouse careers page"],
+      "buying_triggers": ["Series A closed Q1", "Hiring 3 AEs this quarter", "Launched AI performance module"],
+      "key_people": ["Sarah Chen, VP of Sales", "David Okafor, CEO"],
+      "talking_points": ["Scaling outbound without scaling headcount", "SDR research automation ahead of the AE ramp", "Qualifying inbound from the new product launch"],
+      "sources": ["meridianhq.com", "funding announcement", "public job listings"]
+    },
+    "score": {
+      "score": 87,
+      "tier": "A",
+      "reasons": ["B2B SaaS in target segment", "Strong tech signals", "VP-level contact", "Recent funding"],
+      "disqualifiers": []
+    },
+    "draft": {
+      "steps": [
+        {"subject": "Quick question about Meridian HQ", "body": "Hi Sarah, congrats on the Series A. Saw you are bringing on three AEs this quarter. Most teams at that stage hit the same wall: reps spend their first hour a day on account research instead of conversations. We build agent systems that do the research, scoring and drafting, and your reps approve everything from Slack. Worth a look?", "wait_days": 0},
+        {"subject": "How teams like yours ramp AEs faster", "body": "Hi Sarah, following up with one concrete number: teams running agent-assisted research cut ramp time for new AEs because every call starts with a prepared brief. Happy to show you what that looks like on your own pipeline.", "wait_days": 3},
+        {"subject": "Worth a 15 minute chat?", "body": "Hi Sarah, last note from me. If pipeline prep is not a problem worth solving this quarter, no stress. If it is, 15 minutes is enough to show you the system working end to end.", "wait_days": 4}
+      ],
+      "personalization_notes": "Anchored on the Series A and the AE hiring push. Kept the CTA soft on the final step."
+    },
+    "call_brief": [
+      "HR tech platform, 75 employees, Series A $12M",
+      "Stack: Salesforce and Outreach, no AI layer yet",
+      "Talking points: automate SDR research, qualify inbound from the new AI module launch faster",
+      "Recent: hired 3 AEs, launched AI performance module"
+    ]
+  },
+  "lead-002": {
+    "brief": {
+      "company_name": "StackBridge",
+      "domain": "stackbridge.io",
+      "snapshot": "StackBridge is a DevOps platform for engineering teams, around 30 employees. Just launched an enterprise tier and is making its first sales hires.",
+      "tech_signals": ["HubSpot CRM", "Intercom on site", "Enterprise tier launched"],
+      "buying_triggers": ["First SDR hire in progress", "Enterprise tier launch", "Moving upmarket"],
+      "key_people": ["Marcus Rivera, Head of Growth"],
+      "talking_points": ["Standing up outbound from scratch", "One SDR with agent support covers the ground of three", "Enterprise motion needs research depth"],
+      "sources": ["stackbridge.io", "public job listings"]
+    },
+    "score": {
+      "score": 82,
+      "tier": "A",
+      "reasons": ["Target segment size", "Clear buying trigger with first SDR hire", "Head of Growth is the right entry point"],
+      "disqualifiers": []
+    },
+    "draft": {
+      "steps": [
+        {"subject": "Your first SDR hire", "body": "Hi Marcus, saw StackBridge is hiring its first SDR alongside the enterprise launch. Before that hire starts, it is worth deciding what the machine does and what the human does. We build the machine part: research, scoring, drafts, all approved by a human in Slack. Keen to see it?", "wait_days": 0},
+        {"subject": "One SDR, three SDRs of output", "body": "Hi Marcus, quick follow-up. A first SDR with an agent crew behind them starts with prepared briefs and drafted sequences instead of a blank CRM. That is the difference between ramping in weeks and ramping in months.", "wait_days": 3},
+        {"subject": "Closing the loop", "body": "Hi Marcus, last one from me. If outbound infrastructure is on your list for this quarter, 15 minutes gets you a working demo on real data. If not, good luck with the enterprise push.", "wait_days": 4}
+      ],
+      "personalization_notes": "Anchored on the first SDR hire and enterprise tier launch."
+    },
+    "call_brief": [
+      "DevOps platform, 30 employees, moving upmarket",
+      "Stack: HubSpot, no outbound infrastructure yet",
+      "Talking points: first SDR leverage, enterprise research depth",
+      "Recent: enterprise tier launch, first SDR hire posted"
+    ]
+  },
+  "lead-003": {
+    "brief": {
+      "company_name": "NorthBeam Analytics",
+      "domain": "northbeam.com",
+      "snapshot": "NorthBeam Analytics is a B2B analytics company, 51 to 200 employees, with an established Salesforce and Marketo stack and an active RevOps hiring push.",
+      "tech_signals": ["Salesforce CRM", "Marketo automation", "Conference sponsorships"],
+      "buying_triggers": ["RevOps Manager job posting", "Event-driven pipeline push"],
+      "key_people": ["Emily Park, Director of Revenue Operations"],
+      "talking_points": ["RevOps capacity without the headcount", "Event follow-up automation", "Keeping Salesforce and Marketo in sync"],
+      "sources": ["northbeam.com", "public job listings", "event sponsor pages"]
+    },
+    "score": {
+      "score": 80,
+      "tier": "A",
+      "reasons": ["Established revenue stack", "RevOps buyer with an active hiring signal", "Conference activity suggests pipeline pressure"],
+      "disqualifiers": []
+    },
+    "draft": {
+      "steps": [
+        {"subject": "RevOps Manager posting", "body": "Hi Emily, noticed the RevOps Manager posting. Some of that role is judgment, and some of it is plumbing: enrichment, routing, dedupe, follow-up. We build agent systems that take the plumbing so the hire you make does the judgment work. Worth comparing notes?", "wait_days": 0},
+        {"subject": "Event follow-up that does not leak", "body": "Hi Emily, one specific example: conference leads that get researched, scored and drafted for follow-up within the hour, with a human approving every send. That is usually the fastest win for teams with your stack.", "wait_days": 3},
+        {"subject": "Last note", "body": "Hi Emily, closing the loop. If RevOps capacity is the bottleneck this quarter, I can show you a working system in 15 minutes. Either way, good luck with the hire.", "wait_days": 4}
+      ],
+      "personalization_notes": "Anchored on the RevOps hire and event activity. Positioned as capacity, not replacement."
+    },
+    "call_brief": [
+      "B2B analytics, 51 to 200 employees, mature Salesforce and Marketo stack",
+      "Talking points: RevOps plumbing automation, event follow-up speed",
+      "Recent: RevOps Manager posting, conference sponsorship"
+    ]
+  }
+}

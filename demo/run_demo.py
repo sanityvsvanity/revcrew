@@ -1,130 +1,151 @@
-"""Run the full 3-minute demo narrative headlessly in demo mode."""
+"""Headless demo: drives the real pipeline infrastructure end to end.
+
+What is real in this run: the Postgres-backed approval gate, the event outbox,
+and the mock CRM, outreach and chat adapters (every call writes rows you can
+inspect with psql). What is canned: the agent outputs, loaded from
+demo/data/canned.json and validated against the schemas in app/schemas.py, so
+the run is deterministic and needs zero credentials.
+
+Set DEMO_MODE=false with an Anthropic key to run the real agents instead.
+"""
 
 import argparse
 import asyncio
 import json
-import sys
 import time
 from pathlib import Path
 
+from app.approvals import get_approval_status, resolve_approval
+from app.db import close_pool, get_pool
+from app.events import dispatch_pending_events, enqueue_event
+from demo.pipeline import complete_run, reset_state, start_run
+
 DATA_DIR = Path(__file__).parent / "data"
+WIDTH = 60
+
+
+def banner(text: str):
+    print("\n" + "=" * WIDTH)
+    print(f"  {text}")
+    print("=" * WIDTH)
+
+
+def beat(n: int, title: str):
+    print(f"\n[{n}/7] {title}")
+    print("-" * WIDTH)
+
+
+async def state_summary() -> list[str]:
+    """Read back what the run actually wrote. Proof over narration."""
+    pool = await get_pool()
+    lines = []
+    async with pool.connection() as conn:
+        cur = await conn.execute(
+            "SELECT type, COUNT(*) FROM mock_crm_objects GROUP BY type ORDER BY type"
+        )
+        crm_counts = ", ".join(f"{t}: {c}" for t, c in await cur.fetchall())
+        lines.append(f"mock_crm_objects   {crm_counts or 'empty'}")
+
+        cur = await conn.execute("SELECT COUNT(*), MAX(payload->>'status') FROM mock_campaigns")
+        n, status = await cur.fetchone()
+        lines.append(f"mock_campaigns     {n} ({status})" if n else "mock_campaigns     empty")
+
+        cur = await conn.execute("SELECT status, COUNT(*) FROM approvals GROUP BY status")
+        lines.append("approvals          " + (", ".join(f"{s}: {c}" for s, c in await cur.fetchall()) or "empty"))
+
+        cur = await conn.execute("SELECT status, COUNT(*) FROM events GROUP BY status")
+        lines.append("events             " + (", ".join(f"{s}: {c}" for s, c in await cur.fetchall()) or "empty"))
+
+        cur = await conn.execute("SELECT COUNT(*) FROM mock_messages")
+        lines.append(f"mock_messages      {(await cur.fetchone())[0]}")
+    return lines
 
 
 async def run_demo(paced: bool = False, lead_index: int = 0, reset: bool = False):
-    """Drive the full demo narrative."""
-    print("=" * 60)
-    print("  RevCrew Demo — AI Revenue Crew in Action")
-    print("=" * 60)
+    banner("RevCrew demo: new lead to booked call, human in the loop")
 
-    # Load seed data
-    leads = json.loads((DATA_DIR / "leads.json").read_text())
+    if reset:
+        await reset_state()
+        print("Mock state cleared.")
+
+    pause = (lambda s=1: time.sleep(s)) if paced else (lambda s=1: None)
+
+    # Beats 1 to 4: research, qualify, draft, open the approval gate.
+    # start_run validates the canned outputs and writes the approvals row.
+    run = await start_run(lead_index=lead_index)
+    lead, brief, score, draft = run["lead"], run["brief"], run["score"], run["draft"]
+
+    print(f"\nLead: {lead['first_name']} {lead['last_name']}, {lead['title']} at {lead['company']}")
+    print(f"Email: {lead['email']} | Domain: {lead['domain']}")
+    print(f"Signals: {lead['signals']}")
+    pause()
+
+    beat(1, "Research: account brief")
+    print(f"  {brief.snapshot}")
+    print(f"  Tech signals:    {', '.join(brief.tech_signals)}")
+    print(f"  Buying triggers: {', '.join(brief.buying_triggers)}")
+    pause()
+
+    beat(2, "Qualify: ICP score")
+    print(f"  Score {score.score}/100, Tier {score.tier}")
+    print(f"  Reasons: {'; '.join(score.reasons)}")
+    pause()
+
+    beat(3, "Draft outreach sequence")
+    for i, step in enumerate(draft.steps, 1):
+        print(f"  Step {i} (+{step.wait_days}d): {step.subject}")
+    print(f"  Notes: {draft.personalization_notes}")
+    pause()
+
+    beat(4, "Approval gate (Postgres-backed)")
+    run_id = run["run_id"]
+    status = await get_approval_status(run_id)
+    print(f"\n  approvals row {run_id}: {status['status']}")
+    pause()
+    resolution = await resolve_approval(run_id, "approved")
+    print(f"  approvals row {run_id}: {resolution['status']} (auto-approved in demo mode)")
+    pause()
+
+    # Beat 5: push through the real ports. Rows land in mock_campaigns and
+    # mock_crm_objects. Campaigns are always created paused.
+    beat(5, "Push to outreach and CRM")
+    await complete_run(run_id)
+    pause()
+
+    # Beat 6: a reply arrives through the event outbox and gets triaged.
+    # The event row is real, the dispatch is real, the classifier is the
+    # deterministic demo path in app/triage.py.
+    beat(6, "Inbound reply through the event outbox")
     replies = json.loads((DATA_DIR / "replies.json").read_text())
+    reply = replies[0]
+    print(f"  Reply from {reply['from']}: \"{reply['body'][:70]}...\"")
+    event_id = await enqueue_event("instantly", "reply_received", reply)
+    print(f"  events row {event_id}: pending")
+    dispatched = await dispatch_pending_events()
+    print(f"  dispatched {dispatched} event(s): triage, CRM task, chat alert above")
+    pause()
 
-    # Pick a Tier-A lead
-    tier_a = [l for l in leads if l["tier"] == "A"]
-    if lead_index >= len(tier_a):
-        print(f"Lead index {lead_index} out of range (max {len(tier_a)-1})")
-        return
-    lead = tier_a[lead_index]
+    # Beat 7: call prep brief. Canned in demo mode; the copilot agent serves
+    # this live when an Anthropic key is configured.
+    beat(7, "Call prep")
+    print(f"  @RevCrew prep me for the {lead['company']} call")
+    for line in run["call_brief"]:
+        print(f"  - {line}")
 
-    print(f"\n📋 Lead: {lead['first_name']} {lead['last_name']} — {lead['title']} @ {lead['company']}")
-    print(f"   Email: {lead['email']} | Domain: {lead['domain']}")
-    print(f"   Signals: {lead['signals']}")
-
-    if paced:
-        time.sleep(1)
-
-    # Beat 1-2: Research + Qualify
-    print("\n--- Beat 1-2: Research & Qualify ---")
-    print("🔍 Researcher is gathering intelligence...")
-    if paced:
-        time.sleep(1)
-
-    # In demo mode, we simulate the pipeline steps
-    # The actual agent runs require Anthropic API key
-    # For headless demo, we print the expected flow
-
-    print("   ✅ Account brief generated")
-    print("   📊 ICP Score: 87/100 — Tier A")
-    print("   Reasons: B2B SaaS fit, strong tech signals, VP-level contact, recent funding")
-
-    if paced:
-        time.sleep(1)
-
-    # Beat 3: Draft outreach
-    print("\n--- Beat 3: Draft Outreach ---")
-    print("✍️  Outreach Writer drafting sequence...")
-    if paced:
-        time.sleep(1)
-
-    print("   Step 1: 'Quick question about {company}' — references recent funding")
-    print("   Step 2: 'How {similar_company} scaled outbound' — case study")
-    print("   Step 3: 'Worth a 15-min chat?' — soft CTA")
-
-    if paced:
-        time.sleep(1)
-
-    # Beat 4: Approval gate
-    print("\n--- Beat 4: Approval Gate ---")
-    print("🛑 Sequence ready for review — posted to #gtm-desk with Approve/Edit/Reject")
-    if paced:
-        time.sleep(1)
-
-    # Auto-approve in demo mode
-    print("   ✅ Auto-approved (demo mode)")
-
-    if paced:
-        time.sleep(1)
-
-    # Beat 5: Push to Instantly + HubSpot
-    print("\n--- Beat 5: Push to Instantly + HubSpot ---")
-    print("📤 Creating campaign in Instantly...")
-    print("   [MOCK instantly] created campaign 'Outreach - Meridian HQ' (3 steps)")
-    print("📋 Logging to HubSpot...")
-    print("   [MOCK hubspot] upserted contact 'sarah.chen@meridianhq.com'")
-    print("   [MOCK hubspot] upserted company 'meridianhq.com'")
-    print("   [MOCK hubspot] created deal 'Meridian HQ — Outbound'")
-
-    if paced:
-        time.sleep(1)
-
-    # Beat 6: Simulated reply → triage
-    print("\n--- Beat 6: Reply Handling ---")
-    reply = replies[0]  # interested reply
-    print(f"📨 Inbound reply from {reply['from']}:")
-    print(f"   \"{reply['body'][:80]}...\"")
-    if paced:
-        time.sleep(1)
-
-    print("   🏷️  Triage: INTERESTED (high urgency)")
-    print("   📋 HubSpot task created: 'Follow up with Sarah Chen — pricing call'")
-    print("   💬 Slack alert posted to #gtm-desk with suggested reply draft")
-
-    if paced:
-        time.sleep(1)
-
-    # Beat 7: Call prep
-    print("\n--- Beat 7: Call Prep ---")
-    print("@RevCrew prep me for the Meridian HQ call")
-    if paced:
-        time.sleep(1)
-
-    print("   📋 Call Brief: Meridian HQ")
-    print("   - HR tech platform, 75 employees, Series A $12M")
-    print("   - Using Salesforce + Outreach — ripe for AI-powered workflow")
-    print("   - Key talking points: automate SDR research, qualify inbound faster")
-    print("   - Recent: hired 3 AEs, launched AI performance module")
-
-    print("\n" + "=" * 60)
-    print("  ✅ Demo complete — 7 beats, zero credentials, exit 0")
-    print("=" * 60)
+    banner("Demo complete")
+    print("\nState written to Postgres by this run:")
+    for line in await state_summary():
+        print(f"  {line}")
+    print("\nZero credentials required. Inspect with:")
+    print("  docker exec -it revcrew-postgres-1 psql -U revcrew -d revcrew")
+    await close_pool()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run RevCrew demo")
+    parser = argparse.ArgumentParser(description="Run the RevCrew demo")
     parser.add_argument("--paced", action="store_true", help="Sleep between beats for recording")
-    parser.add_argument("--lead", type=int, default=0, help="Lead index (0-2 for Tier A)")
-    parser.add_argument("--reset", action="store_true", help="Reset mock state before running")
+    parser.add_argument("--lead", type=int, default=0, help="Tier A lead index (0-2)")
+    parser.add_argument("--reset", action="store_true", help="Clear mock state before running")
     args = parser.parse_args()
 
     asyncio.run(run_demo(paced=args.paced, lead_index=args.lead, reset=args.reset))
