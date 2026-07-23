@@ -1,4 +1,4 @@
-"""Tests for Pydantic schemas — instantiation and JSON round-trip."""
+"""Tests for Pydantic schemas: instantiation and JSON round-trip."""
 
 import json
 
