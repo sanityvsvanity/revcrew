@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 
 # Ensure .env exists
 if [ ! -f .env ]; then
-    echo "[dev] No .env found — copying .env.example"
+    echo "[dev] No .env found, copying .env.example"
     cp .env.example .env
 fi
 

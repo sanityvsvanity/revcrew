@@ -12,7 +12,7 @@ def test_enqueue_and_dispatch():
         event_id = await enqueue_event(
             "instantly",
             "reply_received",
-            {"from": "sarah.chen@meridianhq.com", "subject": "Re: pricing", "body": "Interested, send over pricing."},
+            {"from": "sarah.chen@auralanehq.example", "subject": "Re: pricing", "body": "Interested, send over pricing."},
         )
         assert event_id > 0
 

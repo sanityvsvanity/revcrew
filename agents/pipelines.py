@@ -44,7 +44,7 @@ async def _approval_gate_step(ctx) -> dict:
 
     await create_approval(
         run_id=run_id,
-        title="📧 Outreach Approval Required",
+        title="Outreach Approval Required",
         summary=summary,
     )
     return {"approval_run_id": run_id, "status": "pending"}
@@ -100,7 +100,7 @@ async def _nurture_log_step(ctx) -> dict:
     chat = get_chat()
     await chat.post_message(
         channel="#gtm-desk",
-        text="ℹ️ Lead scored below threshold: added to nurture sequence.",
+        text="Lead scored below threshold: added to nurture sequence.",
     )
     return {"action": "nurture", "status": "logged"}
 

@@ -2,31 +2,31 @@
   {
     "id": "reply-001",
     "category": "interested",
-    "from": "sarah.chen@meridianhq.com",
-    "subject": "Re: Quick question about Meridian HQ",
-    "body": "Hi there — this is interesting. We're actually evaluating a few solutions in this space right now. Can you send over pricing and a deck? Would love to set up a call next week.\n\nBest,\nSarah",
+    "from": "sarah.chen@auralanehq.example",
+    "subject": "Re: Quick question about Auralane HQ",
+    "body": "Hi there, this is interesting. We're actually evaluating a few solutions in this space right now. Can you send over pricing and a deck? Would love to set up a call next week.\n\nBest,\nSarah",
     "urgency": "high"
   },
   {
     "id": "reply-002",
     "category": "objection",
-    "from": "marcus@stackbridge.io",
-    "subject": "Re: StackBridge + AI revenue workflows",
-    "body": "Thanks for reaching out. We're not in a position to add new tools this quarter — budget is locked until Q4. Feel free to check back then.\n\nMarcus",
+    "from": "marcus@stackmere.example",
+    "subject": "Re: Stackmere + AI revenue workflows",
+    "body": "Thanks for reaching out. We're not in a position to add new tools this quarter, budget is locked until Q4. Feel free to check back then.\n\nMarcus",
     "urgency": "normal"
   },
   {
     "id": "reply-003",
     "category": "ooo",
-    "from": "emily.park@northbeam.com",
+    "from": "emily.park@vantabrook.example",
     "subject": "Automatic reply: Out of office",
-    "body": "I'm out of the office until August 15th with limited email access. For urgent matters, please contact my colleague James at james@northbeam.com.\n\nBest,\nEmily",
+    "body": "I'm out of the office until August 15th with limited email access. For urgent matters, please contact my colleague James at james@vantabrook.example.\n\nBest,\nEmily",
     "urgency": "low"
   },
   {
     "id": "reply-004",
     "category": "unsubscribe",
-    "from": "david@clearstep.co",
+    "from": "david@steadfold.example",
     "subject": "Re: Following up",
     "body": "Please remove me from your list. Not interested.\n\nDavid",
     "urgency": "normal"

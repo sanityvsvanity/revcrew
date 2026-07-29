@@ -93,7 +93,7 @@ Copy `.env.example` to `.env` and fill in what you use:
 | `HUBSPOT_PRIVATE_APP_TOKEN` | Private app with CRM object read and write scopes |
 | `INSTANTLY_API_KEY`, `INSTANTLY_WEBHOOK_SECRET` | Instantly API v2 |
 
-Then set `DEMO_MODE=false`. Test against a HubSpot developer sandbox and a Instantly test workspace before pointing it at production data. Integration guide in [docs/integrations.md](docs/integrations.md).
+Then set `DEMO_MODE=false`. Test against a HubSpot developer sandbox and an Instantly test workspace before pointing it at production data. Integration guide in [docs/integrations.md](docs/integrations.md).
 
 ## Tests
 
@@ -105,7 +105,7 @@ Then set `DEMO_MODE=false`. Test against a HubSpot developer sandbox and a Insta
 
 ## Observability
 
-RevCrew ships with an OpenTelemetry bridge for [Agno Viz](https://github.com/sanityvsvanity/Agno-viz), a 3D topology visualizer for agent systems. Set `TRACING_ENABLED=true` with the `AGNO_VIZ_*` variables and watch the crew think in real time.
+RevCrew ships with an OpenTelemetry bridge for [Agno Viz](https://github.com/sanityvsvanity/Agno-viz), a 3D topology visualizer for agent systems. Set `TRACING_ENABLED=true` with the `AGNO_VIZ_*` variables and watch the crew think in real time. The bridge package is not in `requirements.txt`: install it separately from the [Agno-viz repo](https://github.com/sanityvsvanity/Agno-viz), otherwise the flag is a no-op.
 
 ## Who built this
 
