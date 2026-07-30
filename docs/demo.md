@@ -31,7 +31,7 @@ The sequence that lands:
 2. Try View emails and Edit first: the modal is pre-filled and saving updates the card in place
 3. Click Approve. The card's buttons are replaced and the push confirmation posts: paused campaign, contact, company, deal, note
 4. `/demo reply` runs a canned reply through the outbox. The triage alert lands with the drafted response
-5. Mention the bot for call prep (needs `ANTHROPIC_API_KEY`)
+5. Mention the bot for call prep (needs a configured model provider)
 
 ## Recording script (3 minutes)
 

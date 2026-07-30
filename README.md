@@ -21,6 +21,8 @@ python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 No credentials, no API keys, no .env editing. The demo walks a Tier A lead from intake to booked call in seven beats and exits 0.
 
+Working with a coding agent? Point it at this repo and tell it to follow [AGENTS.md](AGENTS.md). It covers the spin-up, what credentials to ask you for at each stage, and how to verify every integration before touching the next.
+
 ## What the demo actually runs
 
 Worth being precise about, because most agent demos are smoke and mirrors.
@@ -31,7 +33,7 @@ Real in every demo run:
 - The event outbox. Replies enter as `events` rows and get dispatched with capped retries and a dead-letter state.
 - Every adapter call. The mock HubSpot, Instantly and Slack adapters write real rows to Postgres that you can inspect with psql.
 
-Canned in demo mode: the agent outputs. They live in `demo/data/canned.json`, validate against the schemas in `app/schemas.py`, and exist so the demo is deterministic and free. Set `DEMO_MODE=false` with an `ANTHROPIC_API_KEY` and the real agents run instead.
+Canned in demo mode: the agent outputs. They live in `demo/data/canned.json`, validate against the schemas in `app/schemas.py`, and exist so the demo is deterministic and free. Set `DEMO_MODE=false` with a model provider configured (Ollama or an Anthropic key) and the real agents run instead.
 
 The demo closes by reading the state back out of Postgres:
 
@@ -56,15 +58,17 @@ State written to Postgres by this run:
 
 ## Architecture
 
-| Component | Model | Job |
+| Component | Model tier | Job |
 | --- | --- | --- |
-| researcher | Sonnet | Account brief from web and CRM signals, outputs `AccountBrief` |
-| qualifier | Haiku | Scores against `app/icp.yaml`, no tools, outputs `LeadScore` |
-| outreach_writer | Sonnet | Drafts sequences, outputs `SequenceDraft`, holds no send tools |
-| crm_scribe | Haiku | Sole holder of CRM write tools |
-| copilot + gtm_desk | Sonnet | Slack-facing team that fields questions and call prep |
+| researcher | main | Account brief from web and CRM signals, outputs `AccountBrief` |
+| qualifier | fast | Scores against `app/icp.yaml`, no tools, outputs `LeadScore` |
+| outreach_writer | main | Drafts sequences, outputs `SequenceDraft`, holds no send tools |
+| crm_scribe | fast | Sole holder of CRM write tools |
+| copilot + gtm_desk | main | Slack-facing team that fields questions and call prep |
 | lead_pipeline | workflow | research, qualify, gate on score, draft, approval, push |
 | reply_triage | workflow | classify, log to CRM, alert the rep |
+
+Agents ask `app/models.py` for a role, never a model id, so the whole crew moves between providers with env vars. On Ollama the main tier is qwen3:14b and the fast tier qwen3:4b by default; on Anthropic they are Sonnet and Haiku. Prompts live as versioned files in `app/prompts/`.
 
 The integrations are ports and adapters. `CRMPort`, `OutreachPort` and `ChatPort` are protocols in `app/integrations/ports.py`; `DEMO_MODE` decides whether the registry hands out mocks or the live HubSpot, Instantly and Slack adapters. One partial-live rule: in demo mode with a `SLACK_BOT_TOKEN` set, chat goes live while CRM and outreach stay mocked, which is the right setup for demos in a real workspace.
 
@@ -144,9 +148,15 @@ The adapter dedupes before create (contacts by email, companies by domain) and p
 
 ### 6. Pick your models
 
-Anthropic by default: set `ANTHROPIC_API_KEY` and you're done. Sonnet handles research, writing and the copilot; Haiku handles scoring, triage and CRM entry.
+One setting decides the provider. `MODEL_PROVIDER=auto` (the default) uses Ollama whenever it is configured, Anthropic otherwise:
 
-To run on your own hardware, point `OLLAMA_HOST` at a local Ollama server, or set `OLLAMA_API_KEY` for ollama.cloud. Heavy roles use `OLLAMA_MODEL_MAIN` (default qwen3:14b), light roles `OLLAMA_MODEL_FAST` (default qwen3:4b). Reply triage retries once on Anthropic when the local model fails, and says so in the logs. No Ollama config means pure Anthropic and nothing changes.
+- ollama.cloud: set `OLLAMA_API_KEY` and leave `OLLAMA_HOST` empty
+- Local Ollama: point `OLLAMA_HOST` at your server, e.g. `http://localhost:11434`
+- Anthropic: set `ANTHROPIC_API_KEY` and no Ollama variables
+
+Heavy roles (research, writing, copilot) use `OLLAMA_MODEL_MAIN` (default qwen3:14b) or Sonnet; light roles (scoring, triage, CRM entry) use `OLLAMA_MODEL_FAST` (default qwen3:4b) or Haiku. Set `MODEL_PROVIDER=anthropic` or `ollama` to pin a provider regardless of what else is configured.
+
+When Ollama is primary and an Anthropic key is also set, reply triage retries once on Anthropic if the local model fails or returns unusable output, and says so in the logs. Small local models occasionally miss structured output; the retry is there so a flaky classification never drops a prospect reply.
 
 ### 7. Put it online
 
@@ -188,7 +198,7 @@ Approval TTLs, the digest schedule, write caps, retention and model settings all
 - `/demo new-lead` walks the next seed lead up to the approval gate
 - `/demo reply` feeds a canned reply through the outbox and triage
 - `/demo reset` clears mock state
-- Mention the bot to talk to the crew (needs an Anthropic key)
+- Mention the bot to talk to the crew (needs a configured model provider)
 
 Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale timestamps outside a five minute window are rejected, and Slack retries are deduped. Instantly webhooks verify a shared secret. A missing secret rejects everywhere except a pure-mock dev demo.
 
