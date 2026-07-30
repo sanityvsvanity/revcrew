@@ -1,10 +1,10 @@
 # RevCrew
 
-An AI revenue crew for B2B sales teams. It researches accounts, scores leads against your ICP, drafts outreach and logs every touch. Your reps approve, edit or reject from Slack. Agents do the work. Humans keep the judgment calls.
+An agentic revenue crew for B2B sales teams. It researches accounts, scores leads against your ICP, drafts outreach and logs every touch. Your reps approve, edit or reject from Slack. Agents do the work. Humans keep the judgment calls.
 
 Built on [Agno](https://github.com/agno-agi/agno) with FastAPI and Postgres. Five agents, one team, two workflows.
 
-## Where it fits
+## Where it fits (examples):
 
 - A founder or first sales hire doing outbound alone. The crew handles research, scoring and drafts; you approve from Slack between calls.
 - A small SDR team on HubSpot and Instantly. Every touch is logged, deals are deduped across runs, and the manager reads a digest instead of asking around.
