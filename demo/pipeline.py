@@ -16,7 +16,6 @@ from typing import Any
 from app.approvals import create_approval, get_approval_status
 from app.db import get_pool
 from app.events import dispatch_pending_events, enqueue_event
-from app.integrations.registry import get_crm, get_outreach
 from app.schemas import AccountBrief, LeadScore, SequenceDraft
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -26,7 +25,7 @@ def load_lead(lead_index: int = 0) -> tuple[dict, dict]:
     """Return the Nth Tier A lead and its canned fixtures."""
     leads = json.loads((DATA_DIR / "leads.json").read_text())
     canned = json.loads((DATA_DIR / "canned.json").read_text())
-    tier_a = [l for l in leads if l["tier"] == "A"]
+    tier_a = [lead for lead in leads if lead["tier"] == "A"]
     lead = tier_a[lead_index % len(tier_a)]
     return lead, canned[lead["id"]]
 
@@ -58,6 +57,12 @@ async def start_run(
             "lead": lead,
             "draft": draft.model_dump(),
             "brief_snapshot": brief.snapshot,
+            "score": {"tier": score.tier, "score": score.score},
+            "deal": {
+                "name": f"{lead['company']} - Outbound",
+                "amount": lead.get("deal_amount", "18000"),
+                "stage": lead.get("deal_stage", "prospecting"),
+            },
         },
     )
     return {
@@ -71,37 +76,18 @@ async def start_run(
 
 
 async def complete_run(run_id: str) -> dict[str, Any] | None:
-    """Push an approved run to outreach and CRM through the real ports.
+    """Push an approved run to outreach and CRM through the shared push path.
 
-    Returns None when the approval is missing or not approved. Campaigns are
-    always created paused.
+    Returns None when the approval is missing or not approved.
     """
+    from app.push import push_approved_run
+
     status = await get_approval_status(run_id)
     if not status or status["status"] != "approved":
         return None
 
-    data = status["payload"].get("data") or {}
-    lead = data.get("lead")
-    draft = data.get("draft")
-    if not lead or not draft:
-        return None
-
-    outreach = get_outreach()
-    crm = get_crm()
-
-    campaign = await outreach.create_campaign(f"Outbound - {lead['company']}", draft["steps"])
-    await outreach.add_lead(campaign["id"], lead["email"], {"first_name": lead["first_name"]})
-    contact = await crm.upsert_contact(
-        lead["email"],
-        {"first_name": lead["first_name"], "last_name": lead["last_name"], "title": lead["title"]},
-    )
-    company = await crm.upsert_company(lead["domain"], {"name": lead["company"], "industry": lead["industry"]})
-    await crm.create_deal(f"{lead['company']} - Outbound", {"amount": "$18,000", "stage": "prospecting"})
-    if data.get("brief_snapshot"):
-        await crm.log_note("contact", lead["email"], f"Account brief: {data['brief_snapshot']}")
-    await crm.associate("contact", contact["id"], "company", company["id"])
-
-    return {"run_id": run_id, "campaign": campaign, "lead": lead}
+    payload = status["payload"]
+    return await push_approved_run(run_id, payload)
 
 
 async def inject_reply(reply_index: int = 0) -> int:
@@ -117,7 +103,7 @@ async def reset_state() -> None:
     pool = await get_pool()
     async with pool.connection() as conn:
         await conn.execute(
-            "TRUNCATE mock_crm_objects, mock_campaigns, mock_messages, approvals, events "
+            "TRUNCATE mock_crm_objects, mock_campaigns, mock_messages, approvals, events, write_audit "
             "RESTART IDENTITY"
         )
 

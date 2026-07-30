@@ -7,6 +7,7 @@ Dedupe before create: contacts are searched by email, companies by domain.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -15,6 +16,11 @@ from app.config import settings
 
 API_BASE = "https://api.hubapi.com"
 MAX_RETRIES = 3
+
+
+def _iso_now() -> str:
+    """Return the current UTC time as an ISO 8601 string (HubSpot-compatible)."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 class LiveHubSpot:
@@ -89,7 +95,7 @@ class LiveHubSpot:
         note = await self._request(
             "POST",
             "/crm/v3/objects/notes",
-            json={"properties": {"hs_note_body": f"RevCrew: {body}", "hs_timestamp": "now"}},
+            json={"properties": {"hs_note_body": f"RevCrew: {body}", "hs_timestamp": _iso_now()}},
         )
         if note.get("id") and object_id:
             try:
@@ -101,17 +107,20 @@ class LiveHubSpot:
     async def create_task(
         self, title: str, properties: dict[str, Any]
     ) -> dict[str, Any]:
+        task_props: dict[str, Any] = {
+            "hs_task_subject": title,
+            "hs_task_body": str(properties),
+            "hs_timestamp": _iso_now(),
+            "hs_task_priority": "HIGH" if properties.get("urgency") == "high" else "MEDIUM",
+        }
+        # Optional HubSpot owner assignment (S0.4)
+        owner_id = properties.get("hubspot_owner_id") or settings.HUBSPOT_DEFAULT_OWNER_ID
+        if owner_id:
+            task_props["hubspot_owner_id"] = owner_id
         return await self._request(
             "POST",
             "/crm/v3/objects/tasks",
-            json={
-                "properties": {
-                    "hs_task_subject": title,
-                    "hs_task_body": str(properties),
-                    "hs_timestamp": "now",
-                    "hs_task_priority": "HIGH" if properties.get("urgency") == "high" else "MEDIUM",
-                }
-            },
+            json={"properties": task_props},
         )
 
     async def associate(

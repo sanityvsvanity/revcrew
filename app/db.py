@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import psycopg
 from psycopg_pool import AsyncConnectionPool
 
 from app.config import settings

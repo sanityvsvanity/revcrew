@@ -73,6 +73,11 @@ class ChatPort(Protocol):
         title: str,
         summary: str,
         thread_ts: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def open_modal(
+        self, trigger_id: str, view: dict[str, Any]
     ) -> dict[str, Any]: ...
 
     async def update_message(

@@ -1,8 +1,12 @@
-"""Integration registry: returns mock or live adapters based on DEMO_MODE."""
+"""Integration registry: returns mock or live adapters based on DEMO_MODE.
+
+All CRM adapters are wrapped in GuardedCRM unconditionally (S4.4).
+"""
 
 from __future__ import annotations
 
 from app.config import settings
+from app.guard import GuardedCRM
 from app.integrations.ports import ChatPort, CRMPort, OutreachPort
 
 _crm: CRMPort | None = None
@@ -16,11 +20,11 @@ def get_crm() -> CRMPort:
         if settings.DEMO_MODE:
             from app.integrations.mock.hubspot import MockHubSpot
 
-            _crm = MockHubSpot()
+            _crm = GuardedCRM(MockHubSpot())
         else:
             from app.integrations.live.hubspot import LiveHubSpot
 
-            _crm = LiveHubSpot()
+            _crm = GuardedCRM(LiveHubSpot())
     return _crm
 
 

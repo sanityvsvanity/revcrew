@@ -82,8 +82,12 @@ async def handle_reply(payload: dict[str, Any]) -> TriageResult:
         result = classify_reply(subject, body, first_name)
     else:
         from agents.pipelines import reply_triage
+        from app.toolkits.crm_tools import _fence_crm_data
 
-        run = await reply_triage.arun(input=f"Subject: {subject}\n\n{body}")
+        # Prospect-written text is untrusted input — fence it so the
+        # classifier treats it as data, not instructions (S4.8).
+        fenced = _fence_crm_data(f"Subject: {subject}\n\n{body}")
+        run = await reply_triage.arun(input=fenced)
         result = TriageResult.model_validate_json(run.content) if isinstance(run.content, str) else run.content
 
     crm = get_crm()

@@ -29,7 +29,7 @@ async def instantly_add_lead(campaign_id: str, email: str, first_name: str = "",
         variables["first_name"] = first_name
     if company:
         variables["company"] = company
-    result = await outreach.add_lead(campaign_id, email, variables)
+    await outreach.add_lead(campaign_id, email, variables)
     return f"Lead added: {email} to campaign {campaign_id}"
 
 

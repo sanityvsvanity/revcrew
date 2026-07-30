@@ -106,8 +106,15 @@ async def _nurture_log_step(ctx) -> dict:
 
 
 async def _classify_reply_step(ctx) -> dict:
-    """Classify an inbound reply using a fast model."""
-    from agno.models.anthropic import Claude
+    """Classify an inbound reply using a fast model.
+
+    S7.3: if the primary (Ollama) model fails or returns unusable output,
+    retry once on Anthropic when a key is present — logged, never silent.
+    """
+    from agno.agent import Agent
+
+    from app.models import get_fallback_model, get_model
+    from app.prompts.triage import TRIAGE_INSTRUCTIONS
 
     reply_text = ""
     if hasattr(ctx, "input_data"):
@@ -116,24 +123,46 @@ async def _classify_reply_step(ctx) -> dict:
         outputs = getattr(ctx, "outputs", {}) or {}
         reply_text = str(outputs)
 
-    model = Claude(id=settings.MODEL_FAST)
-    prompt = f"""Classify this email reply into one of: interested, objection, ooo, unsubscribe, other.
+    # Prospect text is untrusted — fence it unless the caller already did
+    # (handle_reply fences before invoking the workflow).
+    if "<crm_data" in reply_text:
+        reply_text = reply_text[:2000]
+    else:
+        from app.toolkits.crm_tools import _fence_crm_data
 
-Reply: {reply_text[:500]}
+        reply_text = _fence_crm_data(reply_text[:500])
 
-Return JSON: {{"category": "...", "summary": "...", "suggested_reply": "...", "urgency": "normal|high|low"}}"""
+    async def _classify(model) -> TriageResult | None:
+        agent = Agent(
+            model=model,
+            output_schema=TriageResult,
+            instructions=TRIAGE_INSTRUCTIONS,
+        )
+        run = await agent.arun(reply_text)
+        return run.content if isinstance(run.content, TriageResult) else None
 
+    primary = get_model("triage")
     try:
-        response = await model.ainvoke(prompt)
-        import json
+        result = await _classify(primary)
+        if result is not None:
+            return result.model_dump()
+    except Exception as exc:
+        print(f"[models] triage primary model failed: {exc}")
 
-        result = json.loads(response.content if hasattr(response, "content") else str(response))
-        return TriageResult(**result).model_dump()
-    except Exception:
-        return TriageResult(
-            category="other",
-            summary="Could not classify reply automatically.",
-        ).model_dump()
+    fallback = get_fallback_model("triage")
+    if fallback is not None and type(fallback) is not type(primary):
+        print("[models] model_fallback: retrying triage on Anthropic")
+        try:
+            result = await _classify(fallback)
+            if result is not None:
+                return result.model_dump()
+        except Exception as exc:
+            print(f"[models] triage fallback model failed: {exc}")
+
+    return TriageResult(
+        category="other",
+        summary="Could not classify reply automatically.",
+    ).model_dump()
 
 
 # ── Workflows ──

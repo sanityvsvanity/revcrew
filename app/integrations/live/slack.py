@@ -16,7 +16,7 @@ class SlackAPIError(RuntimeError):
 
 
 class LiveSlack:
-    """Slack chat adapter. Uses chat.postMessage and chat.update."""
+    """Slack chat adapter. Uses chat.postMessage, chat.update, and views.open."""
 
     def _resolve_channel(self, channel: str) -> str:
         # Callers pass a human name like "#gtm-desk"; the API wants a channel ID.
@@ -63,16 +63,39 @@ class LiveSlack:
         title: str,
         summary: str,
         thread_ts: str | None = None,
+        data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        blocks = [
-            {"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*\n{summary}"}},
-            {"type": "actions", "elements": [
-                {"type": "button", "text": {"type": "plain_text", "text": "Approve"}, "action_id": "approve", "value": f"{run_id}:approve", "style": "primary"},
-                {"type": "button", "text": {"type": "plain_text", "text": "Edit"}, "action_id": "edit", "value": f"{run_id}:edit"},
-                {"type": "button", "text": {"type": "plain_text", "text": "Reject"}, "action_id": "reject", "value": f"{run_id}:reject", "style": "danger"},
-            ]},
-        ]
+        """Build the progressive-disclosure card (S2.2) and post it."""
+        from app.approvals import _build_approval_blocks
+
+        if data:
+            lead = data.get("lead") or {}
+            draft = data.get("draft") or {}
+            deal = data.get("deal") or {}
+            score = data.get("score")
+            blocks = _build_approval_blocks(run_id, title, lead, draft, deal, score)
+        else:
+            # Fallback for callers that don't pass data (backward compat)
+            blocks = [
+                {"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*\n{summary}"}},
+                {"type": "actions", "elements": [
+                    {"type": "button", "text": {"type": "plain_text", "text": "Approve"}, "action_id": "approve", "value": f"{run_id}:approve", "style": "primary"},
+                    {"type": "button", "text": {"type": "plain_text", "text": "Edit"}, "action_id": "edit", "value": f"{run_id}:edit"},
+                    {"type": "button", "text": {"type": "plain_text", "text": "Reject"}, "action_id": "reject", "value": f"{run_id}:reject", "style": "danger"},
+                ]},
+            ]
+
         return await self.post_blocks(channel, blocks, thread_ts)
+
+    async def open_modal(
+        self, trigger_id: str, view: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Open a modal via views.open."""
+        payload: dict[str, Any] = {
+            "trigger_id": trigger_id,
+            "view": view,
+        }
+        return await self._call("views.open", payload)
 
     async def update_message(
         self, channel: str, ts: str, text: str, blocks: list[dict[str, Any]] | None = None

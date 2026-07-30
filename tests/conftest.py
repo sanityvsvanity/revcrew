@@ -37,7 +37,7 @@ def run_db_test(scenario):
         pool = await get_pool()
         async with pool.connection() as conn:
             await conn.execute(
-                "TRUNCATE mock_crm_objects, mock_campaigns, mock_messages, approvals, events "
+                "TRUNCATE mock_crm_objects, mock_campaigns, mock_messages, approvals, events, write_audit "
                 "RESTART IDENTITY"
             )
         try:

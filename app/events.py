@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
+from app.config import settings
 from app.db import get_pool
 
 MAX_RETRIES = 5
@@ -49,16 +50,34 @@ async def dispatch_pending_events() -> int:
             dispatched += 1
         except Exception as exc:
             print(f"[events] Failed to process event {event_id}: {exc}")
-            await _retry_event(event_id, retries)
+            await _retry_event(event_id, retries, source, kind)
 
     return dispatched
 
 
+def _event_context_id(kind: str, payload: dict) -> str:
+    """Write-context id keyed on event content.
+
+    A redelivered webhook carries an identical payload, so its CRM writes
+    dedupe against the first delivery — while a genuinely new reply from
+    the same sender hashes differently and is written normally.
+    """
+    import hashlib
+
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str).encode()
+    ).hexdigest()[:12]
+    return f"event:{kind}:{digest}"
+
+
 async def _handle_event(source: str, kind: str, payload: dict):
     """Route an event to the appropriate handler."""
+    from app.guard import set_write_context
+
     if kind == "reply_received":
         from app.triage import handle_reply
 
+        set_write_context(_event_context_id(kind, payload), "triage")
         await handle_reply(payload)
     elif kind == "lead_received":
         from app.config import settings
@@ -82,12 +101,14 @@ async def _handle_event(source: str, kind: str, payload: dict):
 
         crm = get_crm()
         email = payload.get("email", "unknown")
+        set_write_context(_event_context_id(kind, payload), "events")
         await crm.log_note("contact", email, f"Email opened: {payload}")
     elif kind == "lead_unsubscribed":
         from app.integrations.registry import get_crm
 
         crm = get_crm()
         email = payload.get("email", "unknown")
+        set_write_context(_event_context_id(kind, payload), "events")
         await crm.log_note("contact", email, f"Lead unsubscribed: {email}")
     else:
         print(f"[events] Unknown event kind: {kind}")
@@ -103,12 +124,32 @@ async def _mark_event(event_id: int, status: str):
         )
 
 
-async def _retry_event(event_id: int, current_retries: int):
+async def _alert_dead_letter(event_id: int, source: str, kind: str):
+    """Post a one-line alert when an event hits dead-letter (S3.2)."""
+    from app.integrations.registry import get_chat
+
+    try:
+        chat = get_chat()
+        channel = settings.SLACK_CHANNEL_ID or "#gtm-desk"
+        await chat.post_message(
+            channel=channel,
+            text=(
+                f"⚠️ Dead-letter event #{event_id}: {source}/{kind} "
+                f"— held for review, will appear in the digest."
+            ),
+        )
+    except Exception:
+        pass  # Alert is best-effort; don't break the dispatcher
+
+
+async def _retry_event(event_id: int, current_retries: int, source: str = "", kind: str = ""):
     """Schedule a retry with exponential backoff, dead-letter after MAX_RETRIES."""
     next_retry = current_retries + 1
 
     if next_retry > MAX_RETRIES:
         await _mark_event(event_id, "dead_letter")
+        # Post bad-news alert (S3.2)
+        await _alert_dead_letter(event_id, source, kind)
         return
 
     delay = 2**next_retry

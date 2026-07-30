@@ -1,6 +1,5 @@
 """Tests for Pydantic schemas: instantiation and JSON round-trip."""
 
-import json
 
 from app.schemas import (
     AccountBrief,

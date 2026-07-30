@@ -1,6 +1,5 @@
 """Test that runtime discovery finds the expected objects."""
 
-import pytest
 
 from app.runtime import discover_runtime_objects
 

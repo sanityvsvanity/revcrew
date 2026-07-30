@@ -52,16 +52,50 @@ class MockSlack:
         title: str,
         summary: str,
         thread_ts: str | None = None,
+        data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        blocks = [
-            {"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*\n{summary}"}},
-            {"type": "actions", "elements": [
-                {"type": "button", "text": {"type": "plain_text", "text": "Approve"}, "value": f"{run_id}:approve", "style": "primary"},
-                {"type": "button", "text": {"type": "plain_text", "text": "Edit"}, "value": f"{run_id}:edit"},
-                {"type": "button", "text": {"type": "plain_text", "text": "Reject"}, "value": f"{run_id}:reject", "style": "danger"},
-            ]},
-        ]
+        """Build the progressive-disclosure card (S2.2) and post it."""
+        from app.approvals import _build_approval_blocks
+
+        if data:
+            lead = data.get("lead") or {}
+            draft = data.get("draft") or {}
+            deal = data.get("deal") or {}
+            score = data.get("score")
+            blocks = _build_approval_blocks(run_id, title, lead, draft, deal, score)
+        else:
+            # Fallback for callers that don't pass data (backward compat)
+            blocks = [
+                {"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*\n{summary}"}},
+                {"type": "actions", "elements": [
+                    {"type": "button", "text": {"type": "plain_text", "text": "Approve"}, "value": f"{run_id}:approve", "style": "primary"},
+                    {"type": "button", "text": {"type": "plain_text", "text": "Edit"}, "value": f"{run_id}:edit"},
+                    {"type": "button", "text": {"type": "plain_text", "text": "Reject"}, "value": f"{run_id}:reject", "style": "danger"},
+                ]},
+            ]
+
         return await self.post_blocks(channel, blocks, thread_ts)
+
+    async def open_modal(
+        self, trigger_id: str, view: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Mock modal open — renders the modal to console."""
+        title = view.get("title", {}).get("text", "Modal")
+        print(f"\n[MOCK slack] modal opened (trigger: {trigger_id}): {title}")
+        for block in view.get("blocks", []):
+            t = block.get("type", "unknown")
+            if t == "input":
+                label = block.get("label", {}).get("text", "?")
+                print(f"  [input] {label}")
+            elif t == "section":
+                text_obj = block.get("text", {})
+                print(f"  [section] {text_obj.get('text', '')[:100]}")
+            elif t == "header":
+                text_obj = block.get("text", {})
+                print(f"  [header] {text_obj.get('text', '')}")
+            elif t == "divider":
+                print("  ---")
+        return {"ok": True}
 
     async def update_message(
         self, channel: str, ts: str, text: str, blocks: list[dict[str, Any]] | None = None
