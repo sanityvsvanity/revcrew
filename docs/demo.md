@@ -27,10 +27,11 @@ select id, kind, status, retries from events;
 
 The sequence that lands:
 
-1. `/demo new-lead` posts the lead summary and the approval buttons
-2. Click Approve. The message updates and the push confirmation posts: paused campaign, contact, company, deal, note
-3. `/demo reply` runs a canned reply through the outbox. The triage alert lands with the drafted response
-4. Mention the bot for call prep (needs `ANTHROPIC_API_KEY`)
+1. `/demo new-lead` posts the card: lead, score, subject lines, deal, and what approval will write
+2. Try View emails and Edit first: the modal is pre-filled and saving updates the card in place
+3. Click Approve. The card's buttons are replaced and the push confirmation posts: paused campaign, contact, company, deal, note
+4. `/demo reply` runs a canned reply through the outbox. The triage alert lands with the drafted response
+5. Mention the bot for call prep (needs `ANTHROPIC_API_KEY`)
 
 ## Recording script (3 minutes)
 
@@ -38,7 +39,7 @@ Two windows: Slack left, terminal or Agno Viz right.
 
 - 0:00 Cold open on the empty channel. One line on what RevCrew is.
 - 0:20 `/demo new-lead`. Read the score and the first subject line out loud.
-- 0:50 Point at the Approve, Edit, Reject buttons. This is the point of the system: agents draft, humans decide.
+- 0:50 Point at the Approve, Edit, Reject and View emails buttons. This is the point of the system: agents draft, humans decide.
 - 1:10 Approve. Show the push confirmation, then flip to psql or HubSpot to show the records.
 - 1:50 `/demo reply`. Show the triage alert and the drafted reply. Note that nothing auto-sends.
 - 2:20 Call prep via mention. Read two lines of the brief.

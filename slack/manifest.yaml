@@ -1,3 +1,6 @@
+# Replace PLACEHOLDER in the three URLs below with your deployment or tunnel
+# domain before importing. The server must be running when you save: Slack
+# verifies the events URL.
 display_information:
   name: RevCrew
   description: AI revenue crew for B2B sales teams

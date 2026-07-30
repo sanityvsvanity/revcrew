@@ -78,6 +78,101 @@ More detail in [docs/architecture.md](docs/architecture.md).
 - Suggested replies are drafts. The system never sends a reply on its own.
 - Campaigns are always created paused. Activation refuses to run when `ENV=dev` unless forced.
 
+## Setup, step by step
+
+Each integration goes live independently. Do them in order, test after each one, stop wherever you like: Slack alone is already a working demo, and mock mode needs nothing at all.
+
+### 1. Install and run the demo
+
+Requirements: Python 3.12, Docker.
+
+```bash
+git clone https://github.com/sanityvsvanity/revcrew && cd revcrew
+docker compose up -d
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m demo.run_demo
+```
+
+Postgres runs on port 5541 and the schema applies itself at startup, including upgrades on existing databases.
+
+### 2. Start the server
+
+```bash
+./scripts/dev.sh
+```
+
+This copies `.env.example` to `.env` if you don't have one and serves on port 8000. Check it's up:
+
+```bash
+curl http://localhost:8000/health
+```
+
+### 3. Connect Slack
+
+Slack needs to reach your server. For a local trial, open a tunnel and note the domain it prints:
+
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → Create New App → From a manifest. Paste `slack/manifest.yaml`, replacing `PLACEHOLDER` in the three URLs with your tunnel or deployment domain. The server must be running: Slack verifies the events URL when you save.
+2. Install the app to your workspace. Copy the Bot User OAuth Token (`xoxb-...`) into `SLACK_BOT_TOKEN`, and the Signing Secret from Basic Information into `SLACK_SIGNING_SECRET`.
+3. Create a channel, `/invite @RevCrew` into it, and copy the channel ID (bottom of the channel details pane) into `SLACK_CHANNEL_ID`.
+4. Restart the server, then run `/demo new-lead` in the channel. A card with Approve, Edit, Reject and View emails should appear. With `DEMO_MODE=true` chat is live while CRM and outreach stay mocked, so you can click everything without touching real systems.
+5. Optional: put the Slack user IDs allowed to approve in `APPROVER_SLACK_IDS`, comma-separated. Empty means anyone in the channel.
+
+### 4. Connect HubSpot
+
+Use a [developer test account](https://developers.hubspot.com/get-started) first, not your production portal.
+
+1. In the test account: Settings → Integrations → Private Apps → Create a private app.
+2. Scopes: `crm.objects.contacts.read` and `.write`, same for `companies` and `deals`.
+3. Copy the token into `HUBSPOT_PRIVATE_APP_TOKEN`.
+4. Verify:
+
+```bash
+curl -H "Authorization: Bearer $HUBSPOT_PRIVATE_APP_TOKEN" "https://api.hubapi.com/crm/v3/objects/contacts?limit=1"
+```
+
+The adapter dedupes before create (contacts by email, companies by domain) and prefixes every note with `RevCrew:` so you can always tell what the system wrote. Set `HUBSPOT_DEFAULT_OWNER_ID` if you want tasks assigned to someone by default.
+
+### 5. Connect Instantly
+
+1. Copy an API v2 key from your workspace settings into `INSTANTLY_API_KEY`.
+2. Configure a webhook pointed at `https://your-domain/webhooks/instantly`, sending a shared secret in the `X-RevCrew-Secret` header. Put the same value in `INSTANTLY_WEBHOOK_SECRET`.
+3. Campaigns arrive paused, always. Review them in the Instantly UI before activating anything.
+
+### 6. Pick your models
+
+Anthropic by default: set `ANTHROPIC_API_KEY` and you're done. Sonnet handles research, writing and the copilot; Haiku handles scoring, triage and CRM entry.
+
+To run on your own hardware, point `OLLAMA_HOST` at a local Ollama server, or set `OLLAMA_API_KEY` for ollama.cloud. Heavy roles use `OLLAMA_MODEL_MAIN` (default qwen3:14b), light roles `OLLAMA_MODEL_FAST` (default qwen3:4b). Reply triage retries once on Anthropic when the local model fails, and says so in the logs. No Ollama config means pure Anthropic and nothing changes.
+
+### 7. Put it online
+
+The app is one uvicorn process plus Postgres. Any host that runs both works; Railway, Render and Fly all do it with a managed Postgres attached.
+
+1. Provision Postgres 17 and set `DATABASE_URL`. The schema applies itself on first start.
+2. Deploy the repo with `pip install -r requirements.txt` as the build step and this as the start command:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+3. Set the environment variables from your `.env`. Set `OS_SECURITY_KEY` to a long random string: it becomes the bearer token protecting the AgentOS API endpoints.
+4. Update the three Slack URLs (events, actions, commands) and the Instantly webhook to the deployment domain.
+
+### 8. Cut over to live
+
+- `ENV=prod`, which makes missing webhook secrets a hard reject
+- `DEMO_MODE=false`
+- Send a test lead through `/api/leads`: it should land in HubSpot with a paused campaign in Instantly
+- Simulate a reply at `/webhooks/instantly`: it should produce a triage alert and a CRM task
+- Confirm the digest arrives at the hour set in `DIGEST_HOUR` / `DIGEST_TZ`
+- Check `write_audit` and the Instantly UI: no campaign has ever been activated by the system
+
+Approval TTLs, the digest schedule, write caps, retention and model settings all have sane defaults, documented in `.env.example`. The condensed version of this section lives in [docs/integrations.md](docs/integrations.md).
+
 ## The daily loop
 
 1. Leads arrive through `/api/leads`, or `/demo new-lead` while you're evaluating.
@@ -88,38 +183,14 @@ More detail in [docs/architecture.md](docs/architecture.md).
 6. Each morning a digest posts what was approved, rejected and written, plus anything that needs attention: failed pushes, dead-letter events.
 7. Mention the bot for call prep or a straight answer about pipeline state.
 
-## Slack
-
-The app manifest is in `slack/manifest.yaml`. Once installed:
+## Slack commands
 
 - `/demo new-lead` walks the next seed lead up to the approval gate
-- Approve, Edit, Reject and View emails resolve the gate from the card; Approve completes the push
 - `/demo reply` feeds a canned reply through the outbox and triage
 - `/demo reset` clears mock state
 - Mention the bot to talk to the crew (needs an Anthropic key)
-- `APPROVER_SLACK_IDS` limits who can approve; empty means anyone in the channel
 
 Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale timestamps outside a five minute window are rejected, and Slack retries are deduped. Instantly webhooks verify a shared secret. A missing secret rejects everywhere except a pure-mock dev demo.
-
-## Models
-
-Anthropic by default: Sonnet for research, writing and the copilot, Haiku for scoring, triage and CRM entry. To run on your own hardware, point `OLLAMA_HOST` at a local Ollama server, or set `OLLAMA_API_KEY` for ollama.cloud. Heavy roles use `OLLAMA_MODEL_MAIN` (default qwen3:14b), light roles `OLLAMA_MODEL_FAST` (default qwen3:4b). Reply triage retries once on Anthropic when the local model fails, and says so in the logs. No Ollama config means pure Anthropic and nothing changes.
-
-## Going live
-
-Copy `.env.example` to `.env` and fill in what you use:
-
-| Variable | Purpose |
-| --- | --- |
-| `ANTHROPIC_API_KEY` | Live agent runs |
-| `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_CHANNEL_ID` | Slack app from `slack/manifest.yaml` |
-| `HUBSPOT_PRIVATE_APP_TOKEN` | Private app with CRM object read and write scopes |
-| `INSTANTLY_API_KEY`, `INSTANTLY_WEBHOOK_SECRET` | Instantly API v2 |
-| `OS_SECURITY_KEY` | Bearer token for the AgentOS API on reachable deploys |
-
-Then set `DEMO_MODE=false`. Test against a HubSpot developer sandbox and an Instantly test workspace before pointing it at production data. Integration guide in [docs/integrations.md](docs/integrations.md).
-
-Approval TTLs, the digest schedule, write caps, retention and model provider settings all have sane defaults and are documented in `.env.example`.
 
 ## Tests
 

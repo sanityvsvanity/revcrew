@@ -1,19 +1,20 @@
 # Going live
 
+The condensed checklist. The full walkthrough with context is in the README under "Setup, step by step".
+
 Work through these in order. Each one can go live independently thanks to the port registry: chat can be live while CRM stays mocked.
 
 ## Slack
 
-1. Create the app at api.slack.com/apps from `slack/manifest.yaml`
+1. Create the app at api.slack.com/apps from `slack/manifest.yaml`, with the three `PLACEHOLDER` URLs pointed at your deployment or tunnel. The server must be running: Slack verifies the events URL on save.
 2. Install to your workspace, copy the bot token and signing secret to `.env`
 3. Create the channel, invite the bot, put the channel ID in `.env`
-4. Point the manifest URLs (events, actions, commands) at your deployment or tunnel
-5. Verify: `curl -H "Authorization: Bearer $SLACK_BOT_TOKEN" https://slack.com/api/auth.test`
-6. Optional: put the Slack user IDs allowed to approve in `APPROVER_SLACK_IDS`, comma-separated. Anyone else clicking Approve gets told to find an approver.
+4. Verify: `curl -H "Authorization: Bearer $SLACK_BOT_TOKEN" https://slack.com/api/auth.test`
+5. Optional: put the Slack user IDs allowed to approve in `APPROVER_SLACK_IDS`, comma-separated. Anyone else clicking Approve gets told to find an approver.
 
 ## HubSpot
 
-1. Use a developer test account first, not your production portal
+1. Use a [developer test account](https://developers.hubspot.com/get-started) first, not your production portal
 2. Create a private app with scopes: `crm.objects.contacts.read/write`, `crm.objects.companies.read/write`, `crm.objects.deals.read/write`
 3. Token goes in `HUBSPOT_PRIVATE_APP_TOKEN`
 4. Verify: `curl -H "Authorization: Bearer $TOKEN" "https://api.hubapi.com/crm/v3/objects/contacts?limit=1"`
