@@ -10,16 +10,21 @@ Built on [Agno](https://github.com/agno-agi/agno) with FastAPI and Postgres. Fiv
 - A small SDR team on HubSpot and Instantly. Every touch is logged, deals are deduped across runs, and the manager reads a digest instead of asking around.
 - Evaluating agent systems. Mock mode runs the whole pipeline against Postgres with zero credentials, so you can inspect exactly what an agent team would do to your CRM before you connect one.
 
-## Quickstart
+## Two ways in
 
 ```bash
 git clone https://github.com/sanityvsvanity/revcrew && cd revcrew
-docker compose up -d
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m demo.run_demo
+.venv/bin/python start.py
 ```
 
-No credentials, no API keys, no .env editing. The demo walks a Tier A lead from intake to booked call in seven beats and exits 0.
+`start.py` asks one question: demo or live.
+
+**Demo, zero keys.** The full pipeline runs against local Postgres in about two minutes: real approval gate, real outbox, real database state, canned agent outputs. No credentials, no .env editing. The demo walks a Tier A lead from intake to booked call in seven beats and exits 0.
+
+**Live, your stack.** The wizard collects Slack, HubSpot, Instantly and model credentials one integration at a time, checks each against the real API as you enter it, and writes your `.env`. Everything is optional and independent: connect one integration, test it, come back for the next. Slack alone already gives you the full approval experience with CRM and outreach safely mocked.
+
+Prefer commands over prompts? `docker compose up -d && .venv/bin/python -m demo.run_demo` is the demo, and [Setup, step by step](#setup-step-by-step) is live mode by hand.
 
 Working with a coding agent? Point it at this repo and tell it to follow [AGENTS.md](AGENTS.md). It covers the spin-up, what credentials to ask you for at each stage, and how to verify every integration before touching the next.
 
@@ -95,6 +100,8 @@ More detail in [docs/architecture.md](docs/architecture.md).
 - Campaigns are always created paused. Activation refuses to run when `ENV=dev` unless forced.
 
 ## Setup, step by step
+
+`.venv/bin/python start.py` automates the install and the credential collection below, including a live check of each key as you enter it. This section is the same path by hand, plus the parts a wizard cannot do for you (creating the Slack app, the HubSpot private app, the Instantly webhook).
 
 Each integration goes live independently. Do them in order, test after each one, stop wherever you like: Slack alone is already a working demo, and mock mode needs nothing at all.
 
@@ -220,7 +227,7 @@ Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale t
 .venv/bin/python -m pytest
 ```
 
-77 tests: schemas, discovery, the ICP rubric (validation and that the qualifier prompt really reflects the file), signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
+81 tests: schemas, discovery, the setup wizard's env handling, the ICP rubric (validation and that the qualifier prompt really reflects the file), signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
 
 ## Observability
 

@@ -2,6 +2,8 @@
 
 Instructions for coding agents setting up RevCrew on behalf of a human operator. If a person pointed you at this repo and said "spin this up", follow this file top to bottom. Everything here is also in the [README](README.md) in human-oriented form.
 
+First question to the operator, before doing anything: demo first, or straight toward live? Demo needs zero credentials and takes about two minutes; live needs whichever of Slack, HubSpot, Instantly and model keys they want to connect. Recommend demo first unless they already know the system: it proves the install works before any credential is involved. (`start.py` asks a human this same question interactively; as an agent, ask it in chat and drive the steps below yourself.)
+
 ## Ground rules
 
 - Stay in mock mode (`DEMO_MODE=true`, the default) until the operator explicitly asks to go live. Mock mode needs zero credentials and writes only to local Postgres.
@@ -28,7 +30,7 @@ If the demo passes, run the test suite:
 .venv/bin/python -m pytest
 ```
 
-77 tests. DB-backed tests skip automatically when Postgres is down, so a low pass count usually means the Docker container is not up.
+81 tests. DB-backed tests skip automatically when Postgres is down, so a low pass count usually means the Docker container is not up.
 
 Then start the server and confirm it is healthy:
 
