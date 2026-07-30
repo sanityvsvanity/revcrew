@@ -77,7 +77,7 @@ The B tier cutoff comes from `ICP_SCORE_THRESHOLD`, the same number that gates t
 
 | Component | Model tier | Job |
 | --- | --- | --- |
-| researcher | main | Account brief from web and CRM signals, outputs `AccountBrief` |
+| researcher | main | Account brief from web search and enrichment data, outputs `AccountBrief` |
 | qualifier | fast | Scores against `app/icp.yaml`, no tools, outputs `LeadScore` |
 | outreach_writer | main | Drafts sequences, outputs `SequenceDraft`, holds no send tools |
 | crm_scribe | fast | Sole holder of CRM write tools |
