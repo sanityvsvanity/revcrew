@@ -73,11 +73,19 @@ Weights must sum to 100 and every criterion needs a description. A broken rubric
 
 The B tier cutoff comes from `ICP_SCORE_THRESHOLD`, the same number that gates the pipeline: leads scoring below it never reach the outreach writer. One caveat: demo mode agent outputs are canned, so a rubric edit shows up in live runs, not in the demo walkthrough.
 
+## How research works
+
+The researcher holds four tools. `crm_history` checks whether the prospect already exists in your CRM and pulls recent activity, because a warm contact needs a different email than a cold one. `web_search` runs multiple angled queries (overview, funding, hiring, tech stack), each returning titled results with URLs. `fetch_page` pulls the readable text of pages worth reading closely, usually the homepage and careers page. `lookup_company_enrichment` serves the demo's pre-loaded data.
+
+Two provider tiers, resolved the same way as the models: with no keys, search is DuckDuckGo and fetches are direct HTTP, free and fine for evaluation. Set `FIRECRAWL_API_KEY` and both search and scraping switch to [Firecrawl](https://firecrawl.dev), which survives rate limits and JavaScript-heavy sites properly. A Firecrawl failure falls back to the free tier for that call and logs it. `RESEARCH_PROVIDER` pins a tier explicitly.
+
+The evidence rules are the point: `sources` in a brief may only contain URLs that actually came out of a tool, anything research could not establish lands in a `gaps` list instead of being guessed, and failed searches say so instead of failing silently. A guessed detail becomes personalization in a real email, which is why the prompt treats empty fields as correct and invented ones as harmful.
+
 ## Architecture
 
 | Component | Model tier | Job |
 | --- | --- | --- |
-| researcher | main | Account brief from web search and enrichment data, outputs `AccountBrief` |
+| researcher | main | Account brief from CRM history, web search and page fetches, outputs `AccountBrief` |
 | qualifier | fast | Scores against `app/icp.yaml`, no tools, outputs `LeadScore` |
 | outreach_writer | main | Drafts sequences, outputs `SequenceDraft`, holds no send tools |
 | crm_scribe | fast | Sole holder of CRM write tools |
@@ -227,7 +235,7 @@ Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale t
 .venv/bin/python -m pytest
 ```
 
-81 tests: schemas, discovery, the setup wizard's env handling, the ICP rubric (validation and that the qualifier prompt really reflects the file), signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
+98 tests: schemas, discovery, the setup wizard's env handling, the research toolkit (provider fallback, URL hygiene, evidence formatting), the ICP rubric (validation and that the qualifier prompt really reflects the file), signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
 
 ## Observability
 

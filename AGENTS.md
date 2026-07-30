@@ -30,7 +30,7 @@ If the demo passes, run the test suite:
 .venv/bin/python -m pytest
 ```
 
-81 tests. DB-backed tests skip automatically when Postgres is down, so a low pass count usually means the Docker container is not up.
+98 tests. DB-backed tests skip automatically when Postgres is down, so a low pass count usually means the Docker container is not up.
 
 Then start the server and confirm it is healthy:
 
@@ -99,15 +99,17 @@ Ask the operator for an API v2 key from their Instantly workspace settings, and 
 
 Collect: `INSTANTLY_API_KEY`, `INSTANTLY_WEBHOOK_SECRET` (same value as the header).
 
-### Stage 4: Models
+### Stage 4: Models and research
 
-Ask the operator which provider they want. `MODEL_PROVIDER=auto` (default) resolves to Ollama when Ollama is configured, Anthropic otherwise:
+Ask the operator which model provider they want. `MODEL_PROVIDER=auto` (default) resolves to Ollama when Ollama is configured, Anthropic otherwise:
 
 - ollama.cloud: `OLLAMA_API_KEY` set, `OLLAMA_HOST` empty
 - Local Ollama: `OLLAMA_HOST` set, e.g. http://localhost:11434
 - Anthropic: `ANTHROPIC_API_KEY` set, no Ollama variables
 
 Ollama defaults are qwen3:14b for heavy roles and qwen3:4b for light ones. If Ollama is primary, recommend also setting `ANTHROPIC_API_KEY`: reply triage then retries once on Anthropic when the local model produces unusable output.
+
+Also ask whether they have a Firecrawl account. Without keys, the researcher uses free DuckDuckGo search and direct page fetches, which is fine for evaluation but rate-limit-prone at volume. `FIRECRAWL_API_KEY` upgrades search and scraping; recommend it for production use.
 
 ### Stage 5: Deployment
 

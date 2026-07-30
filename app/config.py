@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     MODEL_PROVIDER: str = "auto"
     OLLAMA_HOST: str = ""  # e.g. http://localhost:11434
     OLLAMA_API_KEY: str = ""  # set with no host → defaults to ollama.cloud
+
+    # Research provider: auto = Firecrawl when its key is set, else basic
+    # (DuckDuckGo search + direct page fetch, no keys needed)
+    RESEARCH_PROVIDER: str = "auto"  # auto | basic | firecrawl
+    FIRECRAWL_API_KEY: str = ""
     OLLAMA_MODEL_MAIN: str = "qwen3:14b"  # heavy roles
     OLLAMA_MODEL_FAST: str = "qwen3:4b"   # light roles
 

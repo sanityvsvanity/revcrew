@@ -104,6 +104,23 @@ def check_ollama(host: str, api_key: str) -> tuple[bool, str]:
     return _get("https://ollama.com/api/tags", {"Authorization": f"Bearer {api_key}"})
 
 
+def check_firecrawl(key: str) -> tuple[bool, str]:
+    import httpx
+
+    try:
+        resp = httpx.post(
+            "https://api.firecrawl.dev/v1/search",
+            json={"query": "connectivity check", "limit": 1},
+            headers={"Authorization": f"Bearer {key}"},
+            timeout=15,
+        )
+    except Exception as exc:
+        return False, f"unreachable ({exc.__class__.__name__})"
+    if resp.status_code == 200:
+        return True, "ok (used one search credit to verify)"
+    return False, f"HTTP {resp.status_code}"
+
+
 def check_instantly(key: str) -> tuple[bool, str]:
     return _get(
         "https://api.instantly.ai/api/v2/campaigns?limit=1",
@@ -157,6 +174,13 @@ def live_flow() -> int:
     if anthropic_key:
         updates["ANTHROPIC_API_KEY"] = anthropic_key
         report("anthropic", *check_anthropic(anthropic_key))
+
+    print("\nResearch (optional): Firecrawl upgrades web search and page scraping.")
+    print("Without it, research uses the free DuckDuckGo tier.")
+    firecrawl_key = ask("FIRECRAWL_API_KEY")
+    if firecrawl_key:
+        updates["FIRECRAWL_API_KEY"] = firecrawl_key
+        report("firecrawl", *check_firecrawl(firecrawl_key))
 
     print("\nSlack (README step 3 covers creating the app from slack/manifest.yaml):")
     slack_token = ask("SLACK_BOT_TOKEN (xoxb-...)")

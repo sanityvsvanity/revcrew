@@ -31,7 +31,11 @@ class AccountBrief(BaseModel):
     )
     sources: list[str] = Field(
         default_factory=list,
-        description="Sources used for research",
+        description="URLs actually returned by research tools; never invented",
+    )
+    gaps: list[str] = Field(
+        default_factory=list,
+        description="What research could not find, e.g. 'no funding data found'",
     )
 
 
