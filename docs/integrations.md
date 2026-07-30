@@ -9,6 +9,7 @@ Work through these in order. Each one can go live independently thanks to the po
 3. Create the channel, invite the bot, put the channel ID in `.env`
 4. Point the manifest URLs (events, actions, commands) at your deployment or tunnel
 5. Verify: `curl -H "Authorization: Bearer $SLACK_BOT_TOKEN" https://slack.com/api/auth.test`
+6. Optional: put the Slack user IDs allowed to approve in `APPROVER_SLACK_IDS`, comma-separated. Anyone else clicking Approve gets told to find an approver.
 
 ## HubSpot
 
@@ -29,6 +30,8 @@ The adapter dedupes before create: contacts by email, companies by domain. Notes
 
 - `ENV=prod` set, which makes missing webhook secrets a hard reject
 - `DEMO_MODE=false`
+- `OS_SECURITY_KEY` set if the deployment is reachable from anywhere you don't control
 - A test lead through `/api/leads` lands in HubSpot and a paused campaign appears in Instantly
 - A simulated reply at `/webhooks/instantly` produces a triage alert and a CRM task
-- No campaign has ever been activated by the system: check the audit trail
+- The daily digest arrives at the hour you set in `DIGEST_HOUR` / `DIGEST_TZ`
+- No campaign has ever been activated by the system: check `write_audit` and the Instantly UI

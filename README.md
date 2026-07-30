@@ -4,6 +4,12 @@ An AI revenue crew for B2B sales teams. It researches accounts, scores leads aga
 
 Built on [Agno](https://github.com/agno-agi/agno) with FastAPI and Postgres. Five agents, one team, two workflows.
 
+## Where it fits
+
+- A founder or first sales hire doing outbound alone. The crew handles research, scoring and drafts; you approve from Slack between calls.
+- A small SDR team on HubSpot and Instantly. Every touch is logged, deals are deduped across runs, and the manager reads a digest instead of asking around.
+- Evaluating agent systems. Mock mode runs the whole pipeline against Postgres with zero credentials, so you can inspect exactly what an agent team would do to your CRM before you connect one.
+
 ## Quickstart
 
 ```bash
@@ -67,20 +73,37 @@ More detail in [docs/architecture.md](docs/architecture.md).
 ## Humans stay in control
 
 - Nothing is pushed anywhere until a human clicks Approve. The push step reads its inputs from the approved row, so there is no path around the gate.
+- Every CRM write goes through a guard: validated, capped per run, deduplicated, and logged to an audit table you can query. The copilot's answer to "what did you do this week" comes from that table, not from memory.
+- A second qualified signal for a company with an open deal becomes a note on that deal, not a duplicate deal.
 - Suggested replies are drafts. The system never sends a reply on its own.
 - Campaigns are always created paused. Activation refuses to run when `ENV=dev` unless forced.
+
+## The daily loop
+
+1. Leads arrive through `/api/leads`, or `/demo new-lead` while you're evaluating.
+2. Each qualified lead becomes a Slack card: who they are, the score, three subject lines, the deal, and exactly what will be written. **View emails** shows the full bodies. **Edit** opens a pre-filled modal and updates the card in place. **Reject** asks why, and the reasons roll up in the digest.
+3. **Approve** pushes contact, company, deal and a note to HubSpot, then a paused campaign to Instantly. You activate campaigns in the Instantly UI. If a push fails partway, the thread gets a Retry button, and retries skip whatever already succeeded.
+4. Replies come back through the webhook, get triaged, and land as an alert with a drafted response and a follow-up task. Nothing sends without you.
+5. Pending approvals get one reminder after 24 hours and expire after 72. Both are configurable.
+6. Each morning a digest posts what was approved, rejected and written, plus anything that needs attention: failed pushes, dead-letter events.
+7. Mention the bot for call prep or a straight answer about pipeline state.
 
 ## Slack
 
 The app manifest is in `slack/manifest.yaml`. Once installed:
 
 - `/demo new-lead` walks the next seed lead up to the approval gate
-- Approve, Edit and Reject buttons resolve the gate; Approve completes the push
+- Approve, Edit, Reject and View emails resolve the gate from the card; Approve completes the push
 - `/demo reply` feeds a canned reply through the outbox and triage
 - `/demo reset` clears mock state
 - Mention the bot to talk to the crew (needs an Anthropic key)
+- `APPROVER_SLACK_IDS` limits who can approve; empty means anyone in the channel
 
-Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale timestamps outside a five minute window are rejected, and Slack retries are deduped. Instantly webhooks verify a shared secret. A missing secret rejects in prod and warns in dev.
+Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale timestamps outside a five minute window are rejected, and Slack retries are deduped. Instantly webhooks verify a shared secret. A missing secret rejects everywhere except a pure-mock dev demo.
+
+## Models
+
+Anthropic by default: Sonnet for research, writing and the copilot, Haiku for scoring, triage and CRM entry. To run on your own hardware, point `OLLAMA_HOST` at a local Ollama server, or set `OLLAMA_API_KEY` for ollama.cloud. Heavy roles use `OLLAMA_MODEL_MAIN` (default qwen3:14b), light roles `OLLAMA_MODEL_FAST` (default qwen3:4b). Reply triage retries once on Anthropic when the local model fails, and says so in the logs. No Ollama config means pure Anthropic and nothing changes.
 
 ## Going live
 
@@ -92,8 +115,11 @@ Copy `.env.example` to `.env` and fill in what you use:
 | `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_CHANNEL_ID` | Slack app from `slack/manifest.yaml` |
 | `HUBSPOT_PRIVATE_APP_TOKEN` | Private app with CRM object read and write scopes |
 | `INSTANTLY_API_KEY`, `INSTANTLY_WEBHOOK_SECRET` | Instantly API v2 |
+| `OS_SECURITY_KEY` | Bearer token for the AgentOS API on reachable deploys |
 
 Then set `DEMO_MODE=false`. Test against a HubSpot developer sandbox and an Instantly test workspace before pointing it at production data. Integration guide in [docs/integrations.md](docs/integrations.md).
+
+Approval TTLs, the digest schedule, write caps, retention and model provider settings all have sane defaults and are documented in `.env.example`.
 
 ## Tests
 
@@ -101,7 +127,7 @@ Then set `DEMO_MODE=false`. Test against a HubSpot developer sandbox and an Inst
 .venv/bin/python -m pytest
 ```
 
-31 tests: schemas, discovery, signature rules, outbox retry and dead-letter, webhook auth, and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
+68 tests: schemas, discovery, signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
 
 ## Observability
 
