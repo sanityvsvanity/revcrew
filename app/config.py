@@ -59,6 +59,7 @@ class Settings(BaseSettings):
 
     # ICP
     ICP_SCORE_THRESHOLD: int = 70
+    ICP_PATH: str = ""  # empty = app/icp.yaml
 
     # Approval experience
     APPROVAL_REMINDER_HOURS: int = 24
@@ -76,6 +77,8 @@ class Settings(BaseSettings):
 
     @property
     def icp_yaml_path(self) -> Path:
+        if self.ICP_PATH:
+            return Path(self.ICP_PATH)
         return Path(__file__).parent / "icp.yaml"
 
     @property

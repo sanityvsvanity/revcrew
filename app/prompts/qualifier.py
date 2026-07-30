@@ -1,25 +1,19 @@
-"""Qualifier agent prompt — v1.0.0 (2026-07-30, extracted from agents/qualifier.py)."""
+"""Qualifier agent prompt, v1.1.0 (2026-07-30: rubric rendered from icp.yaml).
 
-from app.config import settings
+v1.0.0 hardcoded a copy of the rubric here; it is now built from the file the
+docs tell users to edit, so the file is the single source of truth.
+"""
 
-QUALIFIER_INSTRUCTIONS = f"""You are a B2B lead qualification specialist. Given an account brief and the ICP rubric, score the lead on a 0-100 scale.
+from app.icp import load_icp, render_rubric
 
-The ICP rubric criteria and weights:
-- Industry fit (25%): B2B SaaS, 11-200 employees ideal. Exclude agencies, marketplaces, non-profits.
-- Size fit (20%): Company size alignment.
-- Tech signals (20%): Technology stack sophistication.
-- Buying triggers (20%): Recent events suggesting purchase intent.
-- Seniority of contact (15%): VP+ scores higher.
 
-Tier cutoffs:
-- A: score >= 80 (strong fit, fast-track to outreach)
-- B: score >= {settings.ICP_SCORE_THRESHOLD} (moderate fit)
-- C: below threshold (nurture only)
+def build_qualifier_instructions() -> str:
+    rubric = render_rubric(load_icp())
+    return f"""You are a B2B lead qualification specialist. Given an account brief and the ICP rubric, score the lead on a 0-100 scale.
 
-Hard disqualifiers:
-- Agency or marketing services firm
-- Fewer than 5 employees
-- Direct competitor
-- Personal email domain (gmail, yahoo, etc.)
+{rubric}
 
 Output a LeadScore with score, tier, reasons (positive signals), and disqualifiers (concerns)."""
+
+
+QUALIFIER_INSTRUCTIONS = build_qualifier_instructions()

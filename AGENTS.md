@@ -28,7 +28,7 @@ If the demo passes, run the test suite:
 .venv/bin/python -m pytest
 ```
 
-68 tests. DB-backed tests skip automatically when Postgres is down, so a low pass count usually means the Docker container is not up.
+77 tests. DB-backed tests skip automatically when Postgres is down, so a low pass count usually means the Docker container is not up.
 
 Then start the server and confirm it is healthy:
 
@@ -38,6 +38,29 @@ curl http://localhost:8000/health
 ```
 
 `dev.sh` copies `.env.example` to `.env` if one does not exist and serves on port 8000. Report the demo output and test count to the operator before going further.
+
+## Customize the ICP rubric
+
+Do this before connecting anything. The shipped rubric targets B2B SaaS, which is almost certainly not the operator's ICP, and every live lead will be scored against whatever is in the rubric file.
+
+Interview the operator, in their language, not yaml:
+
+- Which industries or segments are ideal, and which are explicitly out of scope
+- Company size band (employees, revenue, whatever they think in)
+- Signals that make a lead hot: tech stack, hiring, funding, expansion
+- Who they want to talk to (roles, seniority)
+- Instant disqualifiers (competitors, agencies, personal email domains, regions)
+- Roughly how they would weight those against each other
+
+Then write their answers into `app/icp.yaml` (or a copy referenced by `ICP_PATH`): `target_segments` with include and exclude lists, weighted `criteria` (weights must sum to 100, every criterion needs a description), `tiers`, and `hard_disqualifiers`. The qualifier's scoring instructions are rendered from this file at startup, so this file is the whole customization surface.
+
+Validate before restarting:
+
+```bash
+.venv/bin/python -c "from app.icp import load_icp; load_icp(); print('rubric ok')"
+```
+
+Read the rendered result back to the operator in plain English and confirm it matches what they said. Two things to tell them: `ICP_SCORE_THRESHOLD` in `.env` is the score below which leads never reach outreach, and demo mode agent outputs are canned, so the new rubric shows in live runs, not in the demo walkthrough.
 
 ## Going live, one integration at a time
 
@@ -104,6 +127,7 @@ Only with explicit operator confirmation: `ENV=prod`, `DEMO_MODE=false`. Then ru
 | --- | --- |
 | `agents/` | The five agents and the two workflows |
 | `app/models.py` | Model factory; the only place a provider is chosen |
+| `app/icp.yaml`, `app/icp.py` | The ICP rubric and its loader; the qualifier scores against this |
 | `app/prompts/` | Versioned prompt files per agent |
 | `app/guard.py` | Guarded CRM writes: validation, caps, dedup, audit |
 | `app/approvals.py`, `app/push.py` | Approval state machine and the sole push entry point |

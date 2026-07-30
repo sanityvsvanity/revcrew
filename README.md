@@ -56,6 +56,18 @@ State written to Postgres by this run:
 6. A reply comes back through the webhook, gets triaged, and the rep gets an alert with a drafted response
 7. Ask the copilot to prep you for the call
 
+## Make it score your ICP, not ours
+
+The rubric lives in [`app/icp.yaml`](app/icp.yaml): target segments, weighted criteria, tier cutoffs and hard disqualifiers. The qualifier's scoring instructions are built from this file at startup, so what you write there is exactly what the agent scores against. Edit it in place, or point `ICP_PATH` at your own copy to keep your rubric out of the repo, then restart.
+
+Weights must sum to 100 and every criterion needs a description. A broken rubric stops the server with an error that says which line to fix. Check an edit without restarting:
+
+```bash
+.venv/bin/python -c "from app.icp import load_icp; load_icp(); print('rubric ok')"
+```
+
+The B tier cutoff comes from `ICP_SCORE_THRESHOLD`, the same number that gates the pipeline: leads scoring below it never reach the outreach writer. One caveat: demo mode agent outputs are canned, so a rubric edit shows up in live runs, not in the demo walkthrough.
+
 ## Architecture
 
 | Component | Model tier | Job |
@@ -208,7 +220,7 @@ Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale t
 .venv/bin/python -m pytest
 ```
 
-68 tests: schemas, discovery, signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
+77 tests: schemas, discovery, the ICP rubric (validation and that the qualifier prompt really reflects the file), signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
 
 ## Observability
 

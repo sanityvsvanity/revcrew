@@ -1,9 +1,13 @@
-# RevCrew ICP Rubric: editable scoring configuration
-# This is itself a consulting artifact: tune weights and criteria to match your ideal customer profile.
+# RevCrew ICP rubric. The qualifier's scoring instructions are built from this
+# file at startup, so what you write here is exactly what the agent scores
+# against. Edit it, or point ICP_PATH at your own copy, then restart.
+# Weights must sum to 100. Validate an edit without restarting:
+#   .venv/bin/python -c "from app.icp import load_icp; load_icp(); print('rubric ok')"
 
 target_segments:
-  - "B2B SaaS"
-  - "11-200 employees"
+  include:
+    - "B2B SaaS"
+    - "11-200 employees"
   exclude:
     - "Agencies"
     - "Marketplaces"
