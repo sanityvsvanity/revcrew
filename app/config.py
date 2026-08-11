@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     ICP_SCORE_THRESHOLD: int = 70
     ICP_PATH: str = ""  # empty = app/icp.yaml
 
+    # Copilot skills
+    SKILLS_ENABLED: bool = True
+    SKILLS_PATH: str = ""  # empty = skills/ at the repo root
+
     # Approval experience
     APPROVAL_REMINDER_HOURS: int = 24
     APPROVAL_TTL_HOURS: int = 72
@@ -85,6 +89,12 @@ class Settings(BaseSettings):
         if self.ICP_PATH:
             return Path(self.ICP_PATH)
         return Path(__file__).parent / "icp.yaml"
+
+    @property
+    def skills_dir_path(self) -> Path:
+        if self.SKILLS_PATH:
+            return Path(self.SKILLS_PATH)
+        return Path(__file__).parent.parent / "skills"
 
     @property
     def approver_ids(self) -> set[str]:

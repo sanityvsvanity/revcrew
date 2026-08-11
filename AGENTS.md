@@ -30,7 +30,7 @@ If the demo passes, run the test suite:
 .venv/bin/python -m pytest
 ```
 
-98 tests. DB-backed tests skip automatically when Postgres is down, so a low pass count usually means the Docker container is not up.
+114 tests. DB-backed tests skip automatically when Postgres is down, so a low pass count usually means the Docker container is not up.
 
 Then start the server and confirm it is healthy:
 
@@ -63,6 +63,20 @@ Validate before restarting:
 ```
 
 Read the rendered result back to the operator in plain English and confirm it matches what they said. Two things to tell them: `ICP_SCORE_THRESHOLD` in `.env` is the score below which leads never reach outreach, and demo mode agent outputs are canned, so the new rubric shows in live runs, not in the demo walkthrough.
+
+## Fill in the copilot's proof points
+
+Second customization surface, smaller than the rubric and worth ten minutes. `skills/` holds three playbooks the Slack copilot loads when a request matches: call prep, objection handling, pipeline review. The procedures are generic and fine as shipped. One file is not: `skills/objection-handling/references/proof-points.md` is a template of `TODO` markers, because customer names, competitive positioning and commercial facts cannot be guessed. The skill is instructed not to cite the file while those markers remain, so an unfilled template degrades to a response without a proof point rather than an invented one.
+
+Ask the operator for: two or three customers they can reference and what changed for each, whether each may be named publicly, the competitors they actually lose to and one documented difference for each, and anything reps must never claim. Write it into that file. Leave a `TODO` in place if they do not have an answer — that is the safe state, not a gap to fill with something plausible.
+
+Then confirm the skills load:
+
+```bash
+.venv/bin/python -c "from app.skills import load_skills; print(load_skills().get_skill_names())"
+```
+
+Two rules to state plainly if the operator wants to add their own playbooks: a skill folder is a `SKILL.md` plus an optional `references/` directory, and a `scripts/` directory is refused at load time — RevCrew skills cannot execute code, and logic that needs to act belongs in `app/toolkits/` behind the write guard. `SKILLS_PATH` points the directory somewhere outside the repo if their playbooks are confidential. See [`skills/README.md`](skills/README.md).
 
 ## Going live, one integration at a time
 
@@ -132,6 +146,7 @@ Only with explicit operator confirmation: `ENV=prod`, `DEMO_MODE=false`. Then ru
 | `agents/` | The five agents and the two workflows |
 | `app/models.py` | Model factory; the only place a provider is chosen |
 | `app/icp.yaml`, `app/icp.py` | The ICP rubric and its loader; the qualifier scores against this |
+| `skills/`, `app/skills.py` | The copilot's playbooks, loaded on demand; read-only by construction |
 | `app/prompts/` | Versioned prompt files per agent |
 | `app/guard.py` | Guarded CRM writes: validation, caps, dedup, audit |
 | `app/approvals.py`, `app/push.py` | Approval state machine and the sole push entry point |
@@ -147,3 +162,4 @@ Only with explicit operator confirmation: `ENV=prod`, `DEMO_MODE=false`. Then ru
 - Slack manifest save fails: the server is not running or the tunnel URL is wrong; Slack verifies the events URL at save time.
 - Slack card buttons do nothing: `SLACK_SIGNING_SECRET` missing or the actions URL still says `PLACEHOLDER`.
 - Live agents error immediately: no model provider configured; see Stage 4.
+- Server stops with `SkillsError` on boot: a folder in `skills/` is malformed, or ships a `scripts/` directory. The message names the folder and the fix; `SKILLS_ENABLED=false` is the escape hatch if the operator needs the server up first.

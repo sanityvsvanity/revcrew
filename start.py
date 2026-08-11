@@ -151,7 +151,8 @@ def demo_flow() -> int:
         print("\nDemo done. Next steps, in order of payoff:")
         print("  1. Rerun start.py and pick live mode to connect your own stack")
         print("  2. Edit app/icp.yaml so the qualifier scores your ICP, not ours")
-        print("  3. README 'Setup, step by step' for Slack, HubSpot and Instantly")
+        print("  3. Fill in skills/objection-handling/references/proof-points.md")
+        print("  4. README 'Setup, step by step' for Slack, HubSpot and Instantly")
     return result.returncode
 
 
@@ -217,9 +218,10 @@ def live_flow() -> int:
     print(f"\nWrote {env_path} ({'backup in .env.bak' if (ROOT / '.env.bak').exists() else 'new file'}).")
     print("Next:")
     print("  1. Edit app/icp.yaml so the qualifier scores your ICP")
-    print("  2. Start the server: ./scripts/dev.sh")
+    print("  2. Fill in skills/objection-handling/references/proof-points.md")
+    print("  3. Start the server: ./scripts/dev.sh")
     if slack_token:
-        print("  3. Slack needs to reach the server: tunnel or deploy, README step 3")
+        print("  4. Slack needs to reach the server: tunnel or deploy, README step 3")
     print("  Full checklist: README 'Setup, step by step'")
     return 0
 

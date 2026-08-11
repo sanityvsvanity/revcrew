@@ -73,6 +73,19 @@ Weights must sum to 100 and every criterion needs a description. A broken rubric
 
 The B tier cutoff comes from `ICP_SCORE_THRESHOLD`, the same number that gates the pipeline: leads scoring below it never reach the outreach writer. One caveat: demo mode agent outputs are canned, so a rubric edit shows up in live runs, not in the demo walkthrough.
 
+## Give the copilot your playbooks
+
+The pipeline agents have one job each and a short prompt to match. The copilot is the exception: it fields whatever a rep types into Slack, and that work has real procedure behind it. [`skills/`](skills) holds that procedure as three playbooks — call prep, objection handling, pipeline review — in the [Agent Skills](https://code.claude.com/docs/en/skills) format agno loads natively.
+
+Only a skill's name and description sit in the copilot's prompt, about 600 tokens for all three. The body is fetched with a tool call when a request actually matches, so a rep asking "what's the status on Northwind" pays nothing for the call prep playbook, and a rep asking to prep for a call gets the whole thing: the brief format, the question bank, and the rules that stop a guessed funding round reaching a live conversation.
+
+Two constraints make this safe to leave switched on:
+
+- **Skills are read-only.** The spec allows a `scripts/` directory the agent may execute. RevCrew removes that tool, and a skill folder shipping `scripts/` refuses to load with an error telling you to put the logic in `app/toolkits/` instead, where the write guard and the audit trail apply. The copilot reads prospect-authored text; it does not need a way to run code.
+- **Skills cannot loosen the rules.** Untrusted-input fencing, the approval gate and never sending on the agent's own initiative live in `app/prompts/copilot.py` and hold on every turn, including the ones where no skill loads. A skill adds procedure; it never gets the last word on what the agent may do.
+
+`objection-handling/references/proof-points.md` ships as an empty template, and the skill is told not to cite it while the `TODO` markers remain — fill it with your own customers and competitive positioning, the same way you replace the rubric. `SKILLS_PATH` points the whole directory somewhere private; `SKILLS_ENABLED=false` turns it off. [`skills/README.md`](skills/README.md) covers writing your own.
+
 ## How research works
 
 The researcher holds four tools. `crm_history` checks whether the prospect already exists in your CRM and pulls recent activity, because a warm contact needs a different email than a cold one. `web_search` runs multiple angled queries (overview, funding, hiring, tech stack), each returning titled results with URLs. `fetch_page` pulls the readable text of pages worth reading closely, usually the homepage and careers page. `lookup_company_enrichment` serves the demo's pre-loaded data.
@@ -89,7 +102,7 @@ The evidence rules are the point: `sources` in a brief may only contain URLs tha
 | qualifier | fast | Scores against `app/icp.yaml`, no tools, outputs `LeadScore` |
 | outreach_writer | main | Drafts sequences, outputs `SequenceDraft`, holds no send tools |
 | crm_scribe | fast | Sole holder of CRM write tools |
-| copilot + gtm_desk | main | Slack-facing team that fields questions and call prep |
+| copilot + gtm_desk | main | Slack-facing team that fields questions and call prep, holds the `skills/` playbooks |
 | lead_pipeline | workflow | research, qualify, gate on score, draft, approval, push |
 | reply_triage | workflow | classify, log to CRM, alert the rep |
 
@@ -235,7 +248,7 @@ Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale t
 .venv/bin/python -m pytest
 ```
 
-98 tests: schemas, discovery, the setup wizard's env handling, the research toolkit (provider fallback, URL hygiene, evidence formatting), the ICP rubric (validation and that the qualifier prompt really reflects the file), signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
+114 tests: schemas, discovery, the setup wizard's env handling, the research toolkit (provider fallback, URL hygiene, evidence formatting), the ICP rubric (validation and that the qualifier prompt really reflects the file), the copilot's skills (that every shipped playbook loads, that no skill can open a script execution path, and that the safety rules stay in the prompt rather than in a skill), signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
 
 ## Observability
 

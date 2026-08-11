@@ -12,6 +12,19 @@ Webhook routers are mounted explicitly in `main.py` so the HTTP surface is easy 
 
 Prompts live in `app/prompts/`, one versioned file per agent, imported by the agent definitions in `agents/`.
 
+## Skills
+
+`app/skills.py` loads the Agent Skills packages in `skills/` and hands them to the copilot, and only to the copilot. The pipeline agents are single-purpose, run inside a workflow that has already decided what happens next, and hold rules that must apply on every run — a mechanism that loads instructions only when the model chooses to would weaken them. The copilot is the one agent facing open-ended requests, so it is the one that benefits.
+
+The mechanics are progressive disclosure. `get_system_prompt_snippet()` puts each skill's name and description in the system prompt, roughly 600 tokens for the three shipped playbooks, and `get_skill_instructions` / `get_skill_reference` fetch the body and its references as tools when a request matches. The cost of a deep playbook lands on the turns that use it.
+
+Two departures from the stock agno behavior, both in `ReadOnlySkills`:
+
+- The `get_skill_script` tool is dropped from the tool list, and every line that mentions scripts is filtered out of the prompt snippet so nothing advertises a capability the agent does not have. A skill folder containing a `scripts/` directory raises `SkillsError` at load rather than loading without its execution surface. The copilot handles prospect-authored text; a subprocess path that sidesteps `app/guard.py` and `write_audit` is not a trade worth making.
+- Loading is optional but not silent. A missing directory or `SKILLS_ENABLED=false` returns `None` and the copilot runs as it did before skills existed, but a directory that is present and malformed raises with the file and the fix named, on the same principle as the ICP rubric.
+
+Safety behavior stays in `app/prompts/copilot.py`: the untrusted-input fencing, the approval boundary, and the refusal to send. Skills add procedure on top of those and cannot relax them, which is also what `tests/test_skills.py` asserts.
+
 ## Ports and adapters
 
 Three protocols in `app/integrations/ports.py`:
