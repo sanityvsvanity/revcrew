@@ -30,6 +30,7 @@ def _build_approval_blocks(
     deal: dict[str, Any],
     score: dict[str, Any] | None = None,
     status_line: str | None = None,
+    research: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Build the progressive-disclosure approval card.
 
@@ -83,6 +84,17 @@ def _build_approval_blocks(
     if score_line:
         blocks.append(
             {"type": "section", "text": {"type": "mrkdwn", "text": score_line}}
+        )
+
+    # Evidence line: what the grounding gate verified, so the rep weighs the
+    # brief by its sources, not its confidence. Absent for canned demo briefs.
+    if research and research.get("grounding"):
+        spent = research.get("spent") or {}
+        evidence_line = f"Evidence: {research['grounding']}"
+        if spent.get("calls"):
+            evidence_line += f" · {spent['calls']} lookups, ${float(spent.get('cost_usd', 0)):.3f}"
+        blocks.append(
+            {"type": "context", "elements": [{"type": "mrkdwn", "text": evidence_line}]}
         )
 
     blocks.append(
@@ -652,6 +664,7 @@ async def update_approval_card(
         data.get("draft") or {},
         data.get("deal") or {},
         data.get("score"),
+        research=data.get("research"),
         status_line=status_line,
     )
     try:

@@ -36,3 +36,16 @@ The adapter dedupes before create: contacts by email, companies by domain. Notes
 - A simulated reply at `/webhooks/instantly` produces a triage alert and a CRM task
 - The daily digest arrives at the hour you set in `DIGEST_HOUR` / `DIGEST_TZ`
 - No campaign has ever been activated by the system: check `write_audit` and the Instantly UI
+
+## Research providers (all optional)
+
+| Key | Turns on | Without it |
+|---|---|---|
+| `SERPER_API_KEY` | Tier 1 Google SERP (Serper.dev, prepaid) | Firecrawl search if that key is set, else DuckDuckGo |
+| `FIRECRAWL_API_KEY` | Tier 2 scrape with JS rendering, proxies, 48h cache; JSON extraction; Tier 1 fallback search | Jina Reader, then direct HTTP; `extract_page_fields` refuses |
+| `JINA_API_KEY` | Higher rate limit on Jina Reader | keyless `r.jina.ai` |
+| `BROWSERBASE_API_KEY` + `BROWSERBASE_PROJECT_ID` + `RESEARCH_BROWSER_ENABLED=true` | Tier 3 browser (Stagehand v4) for JS shells and bot walls, escalation only | the page is reported unreadable and the researcher records a gap |
+| `STAGEHAND_MODEL` / `STAGEHAND_MODEL_API_KEY` | The model behind Stagehand `extract` | Browserbase Model Gateway, billed to the session |
+
+Verify any of them live: `curl 'http://localhost:8000/health?probe=1'`. Budgets, deny list and cache
+TTL are documented in `.env.example` and `docs/research-stack.md`.

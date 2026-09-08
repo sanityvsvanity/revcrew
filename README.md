@@ -1,8 +1,10 @@
 # RevCrew
 
+[![ci](https://github.com/sanityvsvanity/revcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/sanityvsvanity/revcrew/actions/workflows/ci.yml)
+
 An agentic revenue crew for B2B sales teams. It researches accounts, scores leads against your ICP, drafts outreach and logs every touch. Your reps approve, edit or reject from Slack. Agents do the work. Humans keep the judgment calls.
 
-Built on [Agno](https://github.com/agno-agi/agno) with FastAPI and Postgres. Five agents, one team, two workflows.
+Built on [Agno 3.0.7](https://github.com/agno-agi/agno) with FastAPI and Postgres. Five agents, one team, two workflows. Since v2 the researcher runs on a tiered research stack with a ledger: every fact in an account brief traces to a recorded tool call, every research call is budgeted and priced, and a grounding gate removes anything the model made up before a rep sees it. The design is in [docs/research-stack.md](docs/research-stack.md).
 
 ## Where it fits (examples):
 
@@ -38,7 +40,9 @@ Real in every demo run:
 - The event outbox. Replies enter as `events` rows and get dispatched with capped retries and a dead-letter state.
 - Every adapter call. The mock HubSpot, Instantly and Slack adapters write real rows to Postgres that you can inspect with psql.
 
-Canned in demo mode: the agent outputs. They live in `demo/data/canned.json`, validate against the schemas in `app/schemas.py`, and exist so the demo is deterministic and free. Set `DEMO_MODE=false` with a model provider configured (Ollama or an Anthropic key) and the real agents run instead.
+Canned in demo mode: the agent outputs. They live in `demo/data/canned.json`, validate against the schemas in `app/schemas.py`, and exist so the demo is deterministic and free. Set `DEMO_MODE=false` with a model provider configured (Ollama or an Anthropic key) and the real agents run instead. The research stack then runs for real as well, at the free tier if you add no other keys.
+
+Also real in every mode, and tested against Postgres in CI: the evidence ledger, the grounding gate, the per-account research budget, the domain policy, and the rule that the workflow ends at the approval gate.
 
 The demo closes by reading the state back out of Postgres:
 
@@ -75,7 +79,7 @@ The B tier cutoff comes from `ICP_SCORE_THRESHOLD`, the same number that gates t
 
 ## Give the copilot your playbooks
 
-The pipeline agents have one job each and a short prompt to match. The copilot is the exception: it fields whatever a rep types into Slack, and that work has real procedure behind it. [`skills/`](skills) holds that procedure as three playbooks — call prep, objection handling, pipeline review — in the [Agent Skills](https://code.claude.com/docs/en/skills) format agno loads natively.
+The pipeline agents have one job each and a short prompt to match. The copilot is the exception: it fields whatever a rep types into Slack, and that work has real procedure behind it. [`skills/`](skills) holds that procedure as three playbooks (call prep, objection handling, pipeline review) in the [Agent Skills](https://agentskills.io/specification) format, which agno loads natively.
 
 Only a skill's name and description sit in the copilot's prompt, about 600 tokens for all three. The body is fetched with a tool call when a request actually matches, so a rep asking "what's the status on Northwind" pays nothing for the call prep playbook, and a rep asking to prep for a call gets the whole thing: the brief format, the question bank, and the rules that stop a guessed funding round reaching a live conversation.
 
@@ -88,22 +92,41 @@ Two constraints make this safe to leave switched on:
 
 ## How research works
 
-The researcher holds four tools. `crm_history` checks whether the prospect already exists in your CRM and pulls recent activity, because a warm contact needs a different email than a cold one. `web_search` runs multiple angled queries (overview, funding, hiring, tech stack), each returning titled results with URLs. `fetch_page` pulls the readable text of pages worth reading closely, usually the homepage and careers page. `lookup_company_enrichment` serves the demo's pre-loaded data.
+The dangerous failure of a research agent is a confident brief with nothing behind it. The case that shaped v2 came from an earlier system of mine: a 30-company brief in which 22 companies had no tool evidence and every founder LinkedIn URL was invented, even though the prompt said not to invent sources. So in v2 the rule is enforced in code after the model runs, and the sources are cheap enough that the researcher can afford to look first.
 
-Two provider tiers, resolved the same way as the models: with no keys, search is DuckDuckGo and fetches are direct HTTP, free and fine for evaluation. Set `FIRECRAWL_API_KEY` and both search and scraping switch to [Firecrawl](https://firecrawl.dev), which survives rate limits and JavaScript-heavy sites properly. A Firecrawl failure falls back to the free tier for that call and logs it. `RESEARCH_PROVIDER` pins a tier explicitly.
+Sources are tiered, cheapest first, and the stack only escalates when a cheaper tier returned nothing or was blocked.
 
-The evidence rules are the point: `sources` in a brief may only contain URLs that actually came out of a tool, anything research could not establish lands in a `gaps` list instead of being guessed, and failed searches say so instead of failing silently. A guessed detail becomes personalization in a real email, which is why the prompt treats empty fields as correct and invented ones as harmful.
+| Tier | Source | Key needed | What it gives |
+|---|---|---|---|
+| 0 | Greenhouse / Lever / Ashby job boards, Google News RSS, your CRM | none | Open roles by department (the cleanest buying signal there is), recent coverage with the publisher named, prior contact |
+| 1 | [Serper](https://serper.dev) → Firecrawl search → DuckDuckGo | optional | Search results with real URLs, ~$0.001 a query when metered |
+| 2 | [Firecrawl](https://firecrawl.dev) v2 → [Jina Reader](https://jina.ai/reader) → direct HTTP | optional | Page text with JavaScript rendered and proxies rotated on a block; one page → one schema-validated object for 5 credits |
+| 3 | [Stagehand v4](https://docs.stagehand.dev) on [Browserbase](https://browserbase.com) | opt-in | A real browser for JavaScript shells and bot walls: `extract(schema)` instead of a 40 KB blob; single-use sessions, 120 s cap |
+
+Every call, whether it succeeded, returned nothing, was blocked or was refused, is a row in the `evidence` table with its tier, provider, URL, content, cost and terms class. That table is the whitelist the grounding gate checks against, the 48-hour fetch cache, the meter behind the per-account budget (25 calls, 40 credits, 180 browser seconds and $0.50 by default), and the answer to "where did this fact come from" in one query.
+
+After the researcher returns, `app/research/grounding.py` removes every URL the ledger does not hold, both from `sources` and from prose, moves claim lists into `gaps` when nothing was fetched, and adds nothing. The report goes on the approval card as one line: `Evidence: 7 sources verified, 2 unverified links removed, 9 lookups, $0.011`.
+
+LinkedIn, social platforms and review sites are denied before any tier runs and are dropped from search results before the model sees them. The browser tier is off unless enabled and is only reached by escalation. robots.txt is read on direct fetches. The compliance detail, with sources, is in [docs/research-stack.md](docs/research-stack.md).
+
+What one account costs, against list prices checked on 2026-09-08: $0.00 on the keyless path, $0.01 to $0.02 with Firecrawl and Serper, and about $0.02 more when a page needs the browser. The default budget ceiling is ten to twenty times that.
+
+All seven research tools return the same envelope (`ok`, `error`, an error class and a `do_not_retry` flag), and a failure repeated three times with the same arguments inside two minutes is refused before the provider is called again. You can run the research step from a shell without Slack:
+
+```bash
+.venv/bin/python scripts/research.py canva.com --company Canva
+```
 
 ## Architecture
 
 | Component | Model tier | Job |
 | --- | --- | --- |
-| researcher | main | Account brief from CRM history, web search and page fetches, outputs `AccountBrief` |
+| researcher | main | Account brief from the tiered research stack (Tier 0 signals → search → scrape → browser), grounded against the evidence ledger, outputs `AccountBrief` |
 | qualifier | fast | Scores against `app/icp.yaml`, no tools, outputs `LeadScore` |
 | outreach_writer | main | Drafts sequences, outputs `SequenceDraft`, holds no send tools |
 | crm_scribe | fast | Sole holder of CRM write tools |
 | copilot + gtm_desk | main | Slack-facing team that fields questions and call prep, holds the `skills/` playbooks |
-| lead_pipeline | workflow | research, qualify, gate on score, draft, approval, push |
+| lead_pipeline | workflow | research (inside a budgeted, recorded run), qualify, gate on score, draft, approval. It stops there; the push runs only from a human Approve |
 | reply_triage | workflow | classify, log to CRM, alert the rep |
 
 Agents ask `app/models.py` for a role, never a model id, so the whole crew moves between providers with env vars. On Ollama the main tier is qwen3:14b and the fast tier qwen3:4b by default; on Anthropic they are Sonnet and Haiku. Prompts live as versioned files in `app/prompts/`.
@@ -114,7 +137,7 @@ More detail in [docs/architecture.md](docs/architecture.md).
 
 ## Humans stay in control
 
-- Nothing is pushed anywhere until a human clicks Approve. The push step reads its inputs from the approved row, so there is no path around the gate.
+- Nothing is pushed anywhere until a human clicks Approve. The workflow ends at the gate (`tests/test_pipeline_shape.py` fails if a step is added after it), and the push reads its inputs from the approved row, so there is no path around it ([ADR 0001](docs/adr/0001-postgres-gate-over-agno-hitl.md)).
 - Every CRM write goes through a guard: validated, capped per run, deduplicated, and logged to an audit table you can query. The copilot's answer to "what did you do this week" comes from that table, not from memory.
 - A second qualified signal for a company with an open deal becomes a note on that deal, not a duplicate deal.
 - Suggested replies are drafts. The system never sends a reply on its own.
@@ -194,22 +217,22 @@ One setting decides the provider. `MODEL_PROVIDER=auto` (the default) uses Ollam
 - Local Ollama: point `OLLAMA_HOST` at your server, e.g. `http://localhost:11434`
 - Anthropic: set `ANTHROPIC_API_KEY` and no Ollama variables
 
-Heavy roles (research, writing, copilot) use `OLLAMA_MODEL_MAIN` (default qwen3:14b) or Sonnet; light roles (scoring, triage, CRM entry) use `OLLAMA_MODEL_FAST` (default qwen3:4b) or Haiku. Set `MODEL_PROVIDER=anthropic` or `ollama` to pin a provider regardless of what else is configured.
+Heavy roles (research, writing, copilot) use `OLLAMA_MODEL_MAIN` (default qwen3:14b) or Sonnet; light roles (scoring, triage, CRM entry) use `OLLAMA_MODEL_FAST` (default qwen3:4b) or Haiku. Set `MODEL_PROVIDER=anthropic` or `ollama` to pin a provider regardless of what else is configured. The defaults are local Ollama model names. On ollama.cloud the hosted models have their own ids (for example `glm-5.2` and `glm-5.3-flash`), so set `OLLAMA_MODEL_MAIN` and `OLLAMA_MODEL_FAST` to two ids from your account. `/health?probe=1` reports `degraded` with the available ids when a configured model is not on the host.
 
 When Ollama is primary and an Anthropic key is also set, reply triage retries once on Anthropic if the local model fails or returns unusable output, and says so in the logs. Small local models occasionally miss structured output; the retry is there so a flaky classification never drops a prospect reply.
 
 ### 7. Put it online
 
-The app is one uvicorn process plus Postgres. Any host that runs both works; Railway, Render and Fly all do it with a managed Postgres attached.
+The app is one uvicorn process plus Postgres. Any host that runs both works; Railway, Render and Fly all do it with a managed Postgres attached. A `Dockerfile` and `railway.toml` are included; the image carries no browser, because the browser tier runs on Browserbase.
 
 1. Provision Postgres 17 and set `DATABASE_URL`. The schema applies itself on first start.
-2. Deploy the repo with `pip install -r requirements.txt` as the build step and this as the start command:
+2. Deploy from the Dockerfile, or with `pip install -r requirements.txt` as the build step and this as the start command:
 
 ```bash
 uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-3. Set the environment variables from your `.env`. Set `OS_SECURITY_KEY` to a long random string: it becomes the bearer token protecting the AgentOS API endpoints.
+3. Set the environment variables from your `.env`. Set `OS_SECURITY_KEY` to a long random string: it becomes the bearer token protecting the AgentOS API endpoints. Set `TIMEZONE` to yours: every agent sees the date labelled with its weekday in that zone, and the digest fires in it.
 4. Update the three Slack URLs (events, actions, commands) and the Instantly webhook to the deployment domain.
 
 ### 8. Cut over to live
@@ -218,7 +241,8 @@ uvicorn main:app --host 0.0.0.0 --port $PORT
 - `DEMO_MODE=false`
 - Send a test lead through `/api/leads`: it should land in HubSpot with a paused campaign in Instantly
 - Simulate a reply at `/webhooks/instantly`: it should produce a triage alert and a CRM task
-- Confirm the digest arrives at the hour set in `DIGEST_HOUR` / `DIGEST_TZ`
+- Open `/health?probe=1`: every configured integration should read `ok`; anything `degraded` is a dead key
+- Confirm the digest arrives at the hour set in `DIGEST_HOUR` in `TIMEZONE`
 - Check `write_audit` and the Instantly UI: no campaign has ever been activated by the system
 
 Approval TTLs, the digest schedule, write caps, retention and model settings all have sane defaults, documented in `.env.example`. The condensed version of this section lives in [docs/integrations.md](docs/integrations.md).
@@ -242,17 +266,30 @@ Approval TTLs, the digest schedule, write caps, retention and model settings all
 
 Webhook hygiene: Slack requests are verified with the v0 HMAC signature, stale timestamps outside a five minute window are rejected, and Slack retries are deduped. Instantly webhooks verify a shared secret. A missing secret rejects everywhere except a pure-mock dev demo.
 
-## Tests
+## Tests, evals and CI
 
 ```bash
 .venv/bin/python -m pytest
 ```
 
-114 tests: schemas, discovery, the setup wizard's env handling, the research toolkit (provider fallback, URL hygiene, evidence formatting), the ICP rubric (validation and that the qualifier prompt really reflects the file), the copilot's skills (that every shipped playbook loads, that no skill can open a script execution path, and that the safety rules stay in the prompt rather than in a skill), signature rules, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end (edit in place, retry after a failed push, deal dedup, reject reasons), and a golden path test that asserts the demo leaves exactly the state it claims. DB-backed tests skip when Postgres is down.
+168 tests, about two seconds. The v1 suite covers schemas, discovery, the setup wizard, the ICP rubric, skills safety, signatures, outbox retry and dead-letter, webhook auth, guarded writes, the approval flow end to end and the demo golden path. v2 adds the tool contract and breaker, the domain policy, the grounding gate, the Tier 0 parsers against fixtures shaped like the real APIs, the ledger and router against Postgres with fake providers (waterfall, verified-empty, escalation and its policy gate, budget refusal, cache), and one test that runs the real research step with a scripted model. That model is an agno `Model` subclass that fetches a page and then cites it together with an invented LinkedIn URL; the test asserts that the gate keeps the first, removes the second, and the ledger records both. DB-backed tests skip when Postgres is down.
 
-## Observability
+Evals (`evals/`, built on `agno.eval`) are the regression suite for the model's behaviour. There is one case per failure that has already happened: fabricated URLs, deny-list respect, verified-empty as an answer, and prospect-text injection. They are scored by code that reads the run's tool results, because a judge that only sees input and output cannot know what a tool returned. They cost real calls and run on demand:
 
-RevCrew ships with an OpenTelemetry bridge for [Agno Viz](https://github.com/sanityvsvanity/Agno-viz), a 3D topology visualizer for agent systems. Set `TRACING_ENABLED=true` with the `AGNO_VIZ_*` variables and watch the crew think in real time. The bridge package is not in `requirements.txt`: install it separately from the [Agno-viz repo](https://github.com/sanityvsvanity/Agno-viz), otherwise the flag is a no-op.
+```bash
+.venv/bin/python scripts/evals.py --list
+.venv/bin/python scripts/evals.py --tag researcher
+```
+
+CI (`.github/workflows/ci.yml`) runs on every push: ruff, the full test suite against a Postgres service container, the zero-key demo end to end, and a boot check that the app starts and `/health` reports the database. There is no deploy step.
+
+## Observability and operations
+
+- Health. `/health` is the cheap liveness check Railway polls. `/health?probe=1` makes one live, read-only call per configured integration (model, Slack, HubSpot, Instantly, Firecrawl, Serper, Browserbase) and reports one of four states for each: `ok`, `degraded` (reachable but refused, such as a dead key or no credit), `down`, `unconfigured`. Results are not cached between requests.
+- Traces. `TRACING_ENABLED=true` turns on agno's OpenTelemetry exporter into your Postgres (`agno_traces`, `agno_spans`), which AgentOS renders as a span tree per run. The [Agno Viz](https://github.com/sanityvsvanity/Agno-viz) bridge is separate: install its package and set the `AGNO_VIZ_*` pair to see the crew in 3D.
+- Cost. Research spend is priced per row when it is written and summarised in the daily digest (`Research: 12 accounts, 91 lookups, $0.14`). Per-account detail is in `research_runs`.
+- When something is down, [docs/FAILURE_MODES.md](docs/FAILURE_MODES.md) lists what breaks, what survives and where it shows.
+- Threat model: [SECURITY.md](SECURITY.md). Rules learned from failures: [docs/LESSONS.md](docs/LESSONS.md). Design decisions: [docs/adr](docs/adr/).
 
 ## Who built this
 

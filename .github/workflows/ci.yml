@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: revcrew
+          POSTGRES_USER: revcrew
+          POSTGRES_PASSWORD: revcrew
+        ports: ["5541:5432"]
+        options: >-
+          --health-cmd "pg_isready -U revcrew"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://revcrew:revcrew@localhost:5541/revcrew
+      DEMO_MODE: "true"
+      ENV: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Lint
+        run: ruff check . && ruff format --check app/research app/probes.py app/toolkits/_contract.py app/toolkits/research_tools.py evals scripts/evals.py agents/pipelines.py
+      - name: Rubric and skills load
+        run: |
+          python -c "from app.icp import load_icp; load_icp(); print('rubric ok')"
+          python -c "from app.skills import load_skills; s = load_skills(); print('skills:', s is not None)"
+      - name: Tests (DB-backed tests run against the service container)
+        run: python -m pytest -q
+      - name: Demo golden path (zero keys, real gate, real outbox)
+        run: python -m demo.run_demo
+      - name: Boot check
+        run: |
+          uvicorn main:app --port 8000 > uvicorn.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:8000/health > health.json; then break; fi
+            sleep 1
+          done
+          if ! python -c "import json; d=json.load(open('health.json')); assert d['database']=='ok', d; print(d)"; then
+            echo "::error::server did not answer /health with database=ok"; cat uvicorn.log; exit 1
+          fi
+          curl -sf 'http://127.0.0.1:8000/health?probe=1' | python -c "import json,sys; d=json.load(sys.stdin); print({k: v['state'] for k, v in d['integrations'].items()})"

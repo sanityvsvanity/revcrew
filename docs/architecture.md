@@ -2,13 +2,28 @@
 
 ## Runtime
 
-`main.py` builds an AgentOS app from whatever it finds in `agents/`. The discovery in `app/runtime.py` imports every top-level module there and collects module-level `Agent`, `Team`, `Workflow`, `APIRouter` and `AsyncIOScheduler` instances. Adding an agent is adding a file. Discovered schedulers are started and stopped by the FastAPI lifespan; `agents/housekeeping.py` registers three jobs that way: an hourly approval sweep (reminders, expiry), the daily digest, and a retention purge.
+`main.py` builds an AgentOS app (agno 3.0.7) from whatever it finds in `agents/`. The discovery in `app/runtime.py` imports every top-level module there and collects module-level `Agent`, `Team`, `Workflow`, `APIRouter` and `AsyncIOScheduler` instances. Adding an agent is adding a file. Discovered schedulers are started and stopped by the FastAPI lifespan; `agents/housekeeping.py` registers three jobs that way: an hourly approval sweep (reminders, expiry), the daily digest, and a retention purge.
 
-Webhook routers are mounted explicitly in `main.py` so the HTTP surface is easy to audit: `/slack/events`, `/slack/actions`, `/slack/commands`, `/webhooks/instantly`, `/api/leads`, `/health`. When `OS_SECURITY_KEY` is set, the AgentOS endpoints require it as a bearer token.
+Webhook routers are mounted explicitly in `main.py` so the HTTP surface is easy to audit: `/slack/events`, `/slack/actions`, `/slack/commands`, `/webhooks/instantly`, `/api/leads`, `/health`. `/health` is cheap and always answers (process up, database answering). `/health?probe=1` makes one live, read-only call per configured integration and reports one of four states for each (ok, degraded, down, unconfigured) from `app/probes.py`; nothing is cached. When `OS_SECURITY_KEY` is set, the AgentOS endpoints require it as a bearer token. `TRACING_ENABLED=true` turns on agno's OpenTelemetry exporter into Postgres, which is what AgentOS renders as a span tree per run.
+
+## Research stack
+
+The researcher is the one agent that reads the open web, so it is the one whose output can be wrong
+while looking right. `app/research/` puts a tiered, budgeted, recorded stack under it and a gate over
+it: free Tier 0 signals (job boards, news RSS, the CRM), then a metered search API, then a scrape API,
+then a headless browser that is off by default and only reached by escalation. Every call is a row in
+the `evidence` table, and every brief is grounded against that table before the qualifier sees it. The
+design, prices and compliance detail are in [docs/research-stack.md](research-stack.md), and the
+decisions in [docs/adr](adr/).
+
+Every tool in the crew returns the same envelope (`app/toolkits/_contract.py`): `ok`, `error`,
+`error_class` (terminal or transient) and `do_not_retry`. The classification is done in code. The
+model is told not to call a tool again after a terminal result, and a failure repeated three times with
+the same arguments inside two minutes is refused before the provider is called again.
 
 ## Models
 
-`app/models.py` is the only place a provider is chosen. Agents ask for a role (researcher, qualifier, outreach_writer, crm_scribe, copilot, triage), never a model id. `MODEL_PROVIDER=auto` resolves to Ollama when `OLLAMA_HOST` or `OLLAMA_API_KEY` is set and Anthropic otherwise, so a machine with no Ollama config behaves exactly as before the factory existed. Heavy roles map to `MODEL_MAIN` / `OLLAMA_MODEL_MAIN`, light roles to the fast variants. Reply triage retries once on Anthropic when the primary model fails or returns unusable output, and logs that it did.
+`app/models.py` is the only place a provider is chosen. Agents ask for a role (researcher, qualifier, outreach_writer, crm_scribe, copilot, triage), never a model id. `MODEL_PROVIDER=auto` resolves to Ollama when `OLLAMA_HOST` or `OLLAMA_API_KEY` is set and Anthropic otherwise, so a machine with no Ollama config behaves exactly as before the factory existed. Hosted Ollama (`ollama.com`) ignores the API-level structured-output parameter without an error, so those models are constructed with native structured outputs off and agno puts the schema in the prompt instead. The four pipeline agents share `pipeline_agent_kwargs()`: no history, no memory, and the date passed in already labelled with its weekday in `TIMEZONE`. Heavy roles map to `MODEL_MAIN` / `OLLAMA_MODEL_MAIN`, light roles to the fast variants. Reply triage retries once on Anthropic when the primary model fails or returns unusable output, and logs that it did.
 
 Prompts live in `app/prompts/`, one versioned file per agent, imported by the agent definitions in `agents/`.
 
@@ -54,6 +69,11 @@ Cross-run deal dedup: `create_deal` takes a `company_domain` hint, checks the au
 
 ## The approval experience
 
+The `lead_pipeline` workflow ends at the gate: research (inside a research run), qualify, and, above
+threshold, draft and open the approval. There is no step after it. The push to HubSpot and Instantly
+runs only from a human Approve ([ADR 0001](adr/0001-postgres-gate-over-agno-hitl.md)).
+
+
 `app/approvals.py`. A workflow that reaches the gate writes a row to `approvals` with the full payload (lead, draft, deal, score), posts the card through the ChatPort, and stops. The card shows the lead, the score, the three subject lines, the deal, and a manifest of what approval will write. The posted message's channel and ts are stored back on the row so every later transition updates the card in place.
 
 - View emails opens a read-only modal with the full bodies, budgeted to Slack's 3,000-character section limit.
@@ -91,4 +111,6 @@ Postgres 17 (pgvector image) via docker compose on port 5541. Schema in `app/sch
 - `events`: the outbox.
 - `write_audit`: every guarded CRM write decision. Also the activity feed. Purged past `RETENTION_DAYS`, along with resolved approvals.
 - `stage_cache`: last-known-good HubSpot deal stages.
+- `research_runs`, `evidence`: one row per researched account and one per provider call. Together they
+  are the grounding whitelist, the fetch cache, the spend meter and the audit trail for research.
 - `mock_*`: what the mock adapters write, so demo state is real rows.

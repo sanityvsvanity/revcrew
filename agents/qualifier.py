@@ -2,7 +2,7 @@
 
 from agno.agent import Agent
 
-from app.models import get_model
+from app.models import get_model, pipeline_agent_kwargs
 from app.prompts.qualifier import QUALIFIER_INSTRUCTIONS
 from app.schemas import LeadScore
 
@@ -12,4 +12,5 @@ qualifier = Agent(
     description="Scores leads against the ICP rubric to determine fit tier.",
     instructions=QUALIFIER_INSTRUCTIONS,
     output_schema=LeadScore,
+    **pipeline_agent_kwargs(),
 )

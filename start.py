@@ -80,7 +80,10 @@ def check_slack(token: str) -> tuple[bool, str]:
     except Exception as exc:
         return False, f"unreachable ({exc.__class__.__name__})"
     if data.get("ok"):
-        return True, f"authed as {data.get('user', 'bot')} in {data.get('team', 'workspace')}"
+        return (
+            True,
+            f"authed as {data.get('user', 'bot')} in {data.get('team', 'workspace')}",
+        )
     return False, data.get("error", "auth failed")
 
 
@@ -105,20 +108,57 @@ def check_ollama(host: str, api_key: str) -> tuple[bool, str]:
 
 
 def check_firecrawl(key: str) -> tuple[bool, str]:
+    return _get(
+        "https://api.firecrawl.dev/v2/team/credit-usage",
+        {"Authorization": f"Bearer {key}"},
+    )
+
+
+def check_serper(key: str) -> tuple[bool, str]:
     import httpx
 
     try:
         resp = httpx.post(
-            "https://api.firecrawl.dev/v1/search",
-            json={"query": "connectivity check", "limit": 1},
-            headers={"Authorization": f"Bearer {key}"},
+            "https://google.serper.dev/search",
+            json={"q": "connectivity check", "num": 1},
+            headers={"X-API-KEY": key},
             timeout=15,
         )
     except Exception as exc:
         return False, f"unreachable ({exc.__class__.__name__})"
     if resp.status_code == 200:
-        return True, "ok (used one search credit to verify)"
+        return True, "ok (used one query to verify)"
     return False, f"HTTP {resp.status_code}"
+
+
+def check_browserbase(key: str, project_id: str) -> tuple[bool, str]:
+    return _get(
+        f"https://api.browserbase.com/v1/projects/{project_id}", {"X-BB-API-Key": key}
+    )
+
+
+def check_ollama_models(api_key: str, wanted: list[str]) -> tuple[bool, str]:
+    """Confirm the chosen model ids exist on ollama.com for this key."""
+    import httpx
+
+    try:
+        resp = httpx.get(
+            "https://ollama.com/api/tags",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=15,
+        )
+    except Exception as exc:
+        return False, f"unreachable ({exc.__class__.__name__})"
+    if resp.status_code != 200:
+        return False, f"HTTP {resp.status_code}"
+    names = {m.get("name", "") for m in resp.json().get("models", [])}
+    missing = [w for w in wanted if w not in names]
+    if missing:
+        return (
+            False,
+            f"not on this account: {', '.join(missing)}. Available: {', '.join(sorted(names)[:12])}",
+        )
+    return True, "ok"
 
 
 def check_instantly(key: str) -> tuple[bool, str]:
@@ -139,14 +179,18 @@ def report(name: str, ok: bool, detail: str) -> None:
     mark = "ok" if ok else "FAILED"
     print(f"  [{mark}] {name}: {detail}")
     if not ok:
-        print("         Stored anyway. Fix it and rerun start.py, checks are repeatable.")
+        print(
+            "         Stored anyway. Fix it and rerun start.py, checks are repeatable."
+        )
 
 
 def demo_flow() -> int:
     print("\nDemo mode: real approval gate, outbox and Postgres state, canned agent")
     print("outputs so it is deterministic and free. Starting Postgres...\n")
     subprocess.run(["docker", "compose", "up", "-d"], cwd=ROOT, check=False)
-    result = subprocess.run([sys.executable, "-m", "demo.run_demo"], cwd=ROOT, check=False)
+    result = subprocess.run(
+        [sys.executable, "-m", "demo.run_demo"], cwd=ROOT, check=False
+    )
     if result.returncode == 0:
         print("\nDemo done. Next steps, in order of payoff:")
         print("  1. Rerun start.py and pick live mode to connect your own stack")
@@ -166,8 +210,12 @@ def live_flow() -> int:
     print("Model provider (pick one; Enter to skip all):")
     print("  ollama.cloud API key, a local Ollama host, or an Anthropic API key")
     ollama_key = ask("OLLAMA_API_KEY (ollama.cloud)")
-    ollama_host = "" if ollama_key else ask("OLLAMA_HOST (local, e.g. http://localhost:11434)")
-    anthropic_key = ask("ANTHROPIC_API_KEY (primary if no Ollama, else triage fallback)")
+    ollama_host = (
+        "" if ollama_key else ask("OLLAMA_HOST (local, e.g. http://localhost:11434)")
+    )
+    anthropic_key = ask(
+        "ANTHROPIC_API_KEY (primary if no Ollama, else triage fallback)"
+    )
     if ollama_key or ollama_host:
         updates["OLLAMA_API_KEY"] = ollama_key
         updates["OLLAMA_HOST"] = ollama_host
@@ -176,12 +224,46 @@ def live_flow() -> int:
         updates["ANTHROPIC_API_KEY"] = anthropic_key
         report("anthropic", *check_anthropic(anthropic_key))
 
-    print("\nResearch (optional): Firecrawl upgrades web search and page scraping.")
-    print("Without it, research uses the free DuckDuckGo tier.")
-    firecrawl_key = ask("FIRECRAWL_API_KEY")
+    if ollama_key and not ollama_host:
+        print(
+            "\nollama.cloud hosts its own model ids (for example glm-5.2, glm-5.3-flash)."
+        )
+        print(
+            "The defaults (qwen3:14b, qwen3:4b) are local Ollama names and will not exist there."
+        )
+        main_model = ask("OLLAMA_MODEL_MAIN (Enter for glm-5.2)") or "glm-5.2"
+        fast_model = (
+            ask("OLLAMA_MODEL_FAST (Enter for glm-5.3-flash)") or "glm-5.3-flash"
+        )
+        updates["OLLAMA_MODEL_MAIN"] = main_model
+        updates["OLLAMA_MODEL_FAST"] = fast_model
+        report(
+            "ollama models", *check_ollama_models(ollama_key, [main_model, fast_model])
+        )
+
+    print(
+        "\nResearch (all optional; docs/research-stack.md). With no keys, research runs on"
+    )
+    print("free sources: job boards, news RSS, DuckDuckGo and Jina Reader.")
+    firecrawl_key = ask("FIRECRAWL_API_KEY (Tier 2 scrape and JSON extraction)")
     if firecrawl_key:
         updates["FIRECRAWL_API_KEY"] = firecrawl_key
         report("firecrawl", *check_firecrawl(firecrawl_key))
+    serper_key = ask("SERPER_API_KEY (Tier 1 Google results)")
+    if serper_key:
+        updates["SERPER_API_KEY"] = serper_key
+        report("serper", *check_serper(serper_key))
+    bb_key = ask("BROWSERBASE_API_KEY (Tier 3 browser; leave empty to skip)")
+    if bb_key:
+        bb_project = ask("BROWSERBASE_PROJECT_ID")
+        updates["BROWSERBASE_API_KEY"] = bb_key
+        updates["BROWSERBASE_PROJECT_ID"] = bb_project
+        report("browserbase", *check_browserbase(bb_key, bb_project))
+        print(
+            "The browser tier stays off until RESEARCH_BROWSER_ENABLED=true; it is metered."
+        )
+        if ask("Enable it now? (yes/no)").lower() in ("y", "yes"):
+            updates["RESEARCH_BROWSER_ENABLED"] = "true"
 
     print("\nSlack (README step 3 covers creating the app from slack/manifest.yaml):")
     slack_token = ask("SLACK_BOT_TOKEN (xoxb-...)")
@@ -201,11 +283,15 @@ def live_flow() -> int:
     instantly_key = ask("INSTANTLY_API_KEY")
     if instantly_key:
         updates["INSTANTLY_API_KEY"] = instantly_key
-        updates["INSTANTLY_WEBHOOK_SECRET"] = ask("INSTANTLY_WEBHOOK_SECRET (shared secret)")
+        updates["INSTANTLY_WEBHOOK_SECRET"] = ask(
+            "INSTANTLY_WEBHOOK_SECRET (shared secret)"
+        )
         report("instantly", *check_instantly(instantly_key))
 
     if not updates:
-        print("\nNothing configured. Run the demo instead, or rerun when you have keys.")
+        print(
+            "\nNothing configured. Run the demo instead, or rerun when you have keys."
+        )
         return 0
 
     print("\nDEMO_MODE=false switches every configured integration to its live")
@@ -215,7 +301,9 @@ def live_flow() -> int:
         updates["DEMO_MODE"] = "false"
 
     env_path = write_env(updates)
-    print(f"\nWrote {env_path} ({'backup in .env.bak' if (ROOT / '.env.bak').exists() else 'new file'}).")
+    print(
+        f"\nWrote {env_path} ({'backup in .env.bak' if (ROOT / '.env.bak').exists() else 'new file'})."
+    )
     print("Next:")
     print("  1. Edit app/icp.yaml so the qualifier scores your ICP")
     print("  2. Fill in skills/objection-handling/references/proof-points.md")

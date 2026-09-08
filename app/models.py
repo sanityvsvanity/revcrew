@@ -100,7 +100,45 @@ def _build_ollama_model(role: str) -> Model:
         kwargs["host"] = "https://ollama.com"
         kwargs["api_key"] = settings.OLLAMA_API_KEY
 
+    if is_ollama_cloud():
+        # Ollama Cloud returns HTTP 200 and drops the API-level structured-output
+        # parameter without an error (measured 2026-07-31 on qwen, glm and
+        # nemotron models on an earlier system). agno trusts the class flag and
+        # never uses its own JSON-in-prompt fallback, so every output_schema
+        # agent would fail on the first attempt. Turning the flag off puts the
+        # schema in the prompt and parses the text, which returns real Pydantic
+        # objects on those models.
+        kwargs["supports_native_structured_outputs"] = False
+        kwargs["supports_json_schema_outputs"] = False
+
     return Ollama(**kwargs)
+
+
+def is_ollama_cloud() -> bool:
+    """True when Ollama requests go to ollama.com (hosted) rather than a local daemon."""
+    if settings.OLLAMA_HOST:
+        return "ollama.com" in settings.OLLAMA_HOST
+    return bool(settings.OLLAMA_API_KEY)
+
+
+def pipeline_agent_kwargs() -> dict[str, Any]:
+    """Shared constructor kwargs for the four single-purpose pipeline agents.
+
+    - No history and no memory. A pipeline agent starts every run from its
+      input and its tools. A research agent that replayed prior runs once started
+      at 145K prompt tokens with another prospect's facts in context.
+    - The date arrives labelled. ``add_datetime_to_context`` with a format that
+      spells the weekday means the model does no calendar arithmetic. An earlier
+      system answered "Sun Sep 7" for a Monday when it was given digits only.
+    """
+    return {
+        "add_history_to_context": False,
+        "num_history_runs": 0,
+        "add_datetime_to_context": True,
+        "datetime_format": "%A %d %B %Y, %H:%M %Z",
+        "timezone_identifier": settings.TIMEZONE,
+        "markdown": False,
+    }
 
 
 def has_anthropic_fallback() -> bool:

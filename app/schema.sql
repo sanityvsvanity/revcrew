@@ -85,3 +85,46 @@ CREATE TABLE IF NOT EXISTS stage_cache (
     stages JSONB NOT NULL DEFAULT '[]',
     fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Evidence-grade research (v2): one row per researched account, one row per fetch.
+CREATE TABLE IF NOT EXISTS research_runs (
+    run_id TEXT PRIMARY KEY,
+    domain TEXT NOT NULL,
+    trigger TEXT NOT NULL DEFAULT 'pipeline',
+    status TEXT NOT NULL DEFAULT 'running',
+    budget JSONB NOT NULL DEFAULT '{}',
+    spent JSONB NOT NULL DEFAULT '{}',
+    grounding JSONB NOT NULL DEFAULT '{}',
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS evidence (
+    id SERIAL PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    domain TEXT NOT NULL DEFAULT '',
+    tier SMALLINT NOT NULL,
+    provider TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('ok', 'empty', 'blocked', 'denied', 'error', 'refused')),
+    url TEXT NOT NULL DEFAULT '',
+    url_norm TEXT NOT NULL DEFAULT '',
+    query TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL DEFAULT '',
+    content_hash TEXT NOT NULL DEFAULT '',
+    error TEXT NOT NULL DEFAULT '',
+    error_class TEXT NOT NULL DEFAULT '',
+    credits NUMERIC(10,3) NOT NULL DEFAULT 0,
+    cost_usd NUMERIC(10,6) NOT NULL DEFAULT 0,
+    browser_seconds NUMERIC(10,2) NOT NULL DEFAULT 0,
+    latency_ms INTEGER NOT NULL DEFAULT 0,
+    tos_class TEXT NOT NULL DEFAULT 'public_web',
+    meta JSONB NOT NULL DEFAULT '{}',
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_evidence_run ON evidence(run_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_url_norm ON evidence(url_norm, fetched_at);
+CREATE INDEX IF NOT EXISTS idx_evidence_fetched ON evidence(fetched_at);
+CREATE INDEX IF NOT EXISTS idx_research_runs_domain ON research_runs(domain, started_at);
