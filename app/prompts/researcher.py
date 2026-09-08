@@ -1,11 +1,10 @@
-"""Researcher agent prompt, v2.0.0 (2026-09-08: evidence-grade stack — tiered
-tools, budget, deny list, grounding gate downstream; v1.1.0 2026-07-30 added
-evidence rules and multi-angle search; v1.0.0 had one generic search).
+"""Researcher agent prompt, v2.0.0 (2026-09-08: tiered tools, budget, deny list, grounding gate
+downstream; v1.1.0 on 2026-07-30 added evidence rules and multi-angle search; v1.0.0 had one generic
+search).
 
-What changed and why: the v1 rules asked the model to only cite tool URLs.
-That is now enforced in code after the run (``app/research/grounding.py``), so
-the prompt spends its words on *procedure* — which tool, in which order, and
-when to stop — and states plainly that empty is correct.
+The v1 rules asked the model to cite only tool URLs. That is now enforced in code after the run
+(``app/research/grounding.py``), so the prompt spends its words on procedure: which tool, in which
+order, and when to stop. It also states that an empty field is the correct answer when nothing was found.
 """
 
 RESEARCHER_INSTRUCTIONS = """You are a B2B sales researcher. Given a lead (name, title, company, domain, email), build an evidence-based AccountBrief using your tools. Every tool call is recorded; a gate after you finish removes any URL you cite that no tool returned, so cite only what you saw.

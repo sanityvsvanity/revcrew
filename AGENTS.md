@@ -8,9 +8,9 @@ First question to the operator, before doing anything: demo first, or straight t
 
 - Research providers are optional and tiered (`docs/research-stack.md`). Add keys one at a time and
   confirm each with `curl 'http://localhost:8000/health?probe=1'` before adding the next. Do not set
-  `RESEARCH_BROWSER_ENABLED=true` unless the operator asks for the browser tier; it is metered.
-- Never add `linkedin.com` or any social platform to a fetch, a search filter or a prompt. The deny
-  list in `app/research/policy.py` is policy, not a bug to route around.
+  `RESEARCH_BROWSER_ENABLED=true` unless the operator asks for the browser tier, because it is metered.
+- Do not add `linkedin.com` or any social platform to a fetch, a search filter or a prompt. The deny
+  list in `app/research/policy.py` is deliberate.
 
 - Stay in mock mode (`DEMO_MODE=true`, the default) until the operator explicitly asks to go live. Mock mode needs zero credentials and writes only to local Postgres.
 - Never activate an outreach campaign. The system creates campaigns paused by design; activation is a human action in the Instantly UI.

@@ -1,12 +1,11 @@
-"""A Model that plays a script — the only way to test an agent path offline.
+"""A Model that plays a script, which is what makes an agent path testable offline.
 
-agno's own approach: subclass ``Model``, return ``ModelResponse`` objects, and
-let the real machinery (tool dispatch, output-schema parsing, workflow steps)
-do the rest. The tests then exercise the actual path rather than a mock of it.
+This is agno's own approach: subclass ``Model``, return ``ModelResponse`` objects, and let the real
+machinery (tool dispatch, output-schema parsing, workflow steps) do the rest. The tests then exercise
+the actual path rather than a mock of it.
 
-Landmine (inherited from the predecessor's fixture): do not name an attribute
-``_tool_name`` — ``Model._tool_name`` is a staticmethod agno uses to sort tool
-schemas, and shadowing it turns every run into a swallowed TypeError.
+Do not name an attribute ``_tool_name``. ``Model._tool_name`` is a staticmethod agno uses to sort tool
+schemas, and shadowing it turns every run into a TypeError that agno swallows into a generic run error.
 """
 
 from __future__ import annotations

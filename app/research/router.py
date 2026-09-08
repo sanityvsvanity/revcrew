@@ -1,13 +1,12 @@
-"""The waterfall: cheapest source first, escalate only on evidence of need.
+"""The waterfall: cheapest source first, escalation only after an empty or blocked result.
 
-``search`` and ``fetch`` are what the toolkit calls. Each walks its provider
-chain, records every attempt in the ledger (misses included), charges the
-budget, and stops at the first usable result. ``fetch`` escalates to the
-browser tier only when a cheaper tier returned a JavaScript shell or was
-blocked *and* policy allows it — the browser is never the first call.
+``search`` and ``fetch`` are what the toolkit calls. Each walks its provider chain, records every
+attempt in the ledger (misses included), charges the budget, and stops at the first usable result.
+``fetch`` escalates to the browser tier only when a cheaper tier returned a JavaScript shell or was
+blocked and policy allows it. The browser is never the first call.
 
-Every public function here takes the ``RunContext`` explicitly. The toolkit
-resolves it from the contextvar; tests pass one in.
+Every public function takes the ``RunContext`` explicitly. The toolkit resolves it from the
+contextvar; tests pass one in.
 """
 
 from __future__ import annotations
@@ -24,8 +23,8 @@ from app.research.providers import signals as signal_providers
 from app.toolkits._contract import envelope
 
 
-# A refusal is a ledger row too: "we did not look" must be distinguishable
-# from "we looked and found nothing" (CoS P26).
+# A refusal is a ledger row too, so that "we did not look" can be told apart
+# from "we looked and found nothing".
 async def _refuse(
     ctx: RunContext,
     *,

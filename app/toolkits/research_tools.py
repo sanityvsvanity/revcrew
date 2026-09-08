@@ -1,27 +1,24 @@
-"""Research toolkit: the researcher's hands, every one of them recorded.
+"""Research toolkit: the researcher's tools, each one recorded in the ledger.
 
 Seven tools over the tiered stack in ``app/research``:
 
-| tool                    | tier | provider chain                                  |
-|-------------------------|------|-------------------------------------------------|
-| ``hiring_signals``      | 0    | Greenhouse / Lever / Ashby public job boards    |
-| ``news_signals``        | 0    | Google News RSS                                 |
-| ``web_search``          | 1    | Serper → Firecrawl search → DuckDuckGo          |
-| ``fetch_page``          | 2→3  | cache → Firecrawl → Jina Reader → HTTP → browser|
-| ``extract_page_fields`` | 2    | Firecrawl JSON format (schema in, object out)   |
-| ``crm_history``         | —    | the CRM port (own data)                          |
-| ``lookup_company_enrichment`` | — | demo fixtures                                 |
+| tool                          | tier | provider chain                                     |
+|-------------------------------|------|----------------------------------------------------|
+| ``hiring_signals``            | 0    | Greenhouse, Lever and Ashby public job boards      |
+| ``news_signals``              | 0    | Google News RSS                                    |
+| ``web_search``                | 1    | Serper, then Firecrawl search, then DuckDuckGo     |
+| ``fetch_page``                | 2, 3 | cache, Firecrawl, Jina Reader, HTTP, then browser  |
+| ``extract_page_fields``       | 2    | Firecrawl JSON format (schema in, object out)      |
+| ``crm_history``               |      | the CRM port (own data)                            |
+| ``lookup_company_enrichment`` |      | demo fixtures                                      |
 
-Every call runs inside a research run (``app/research/context.py``): the
-pipeline opens one per lead; ad-hoc copilot research opens one per agno run,
-keyed by the ``run_context`` agno injects. Every call is a ledger row, hit or
-miss, and every failure comes back as a ``{"ok": false, ...}`` envelope with
-a retry class (``app/toolkits/_contract.py``). The model is never the first to
-learn that a provider is down; the row is.
+Every call runs inside a research run (``app/research/context.py``). The pipeline opens one per lead;
+ad-hoc copilot research opens one per agno run, keyed by the ``run_context`` agno injects. Every call
+is a ledger row, and every failure comes back as a ``{"ok": false, ...}`` envelope with a retry class
+(``app/toolkits/_contract.py``).
 
-Compatibility: ``format_results``, ``format_crm_history``,
-``resolve_research_provider``, ``strip_html`` and ``url_allowed`` keep their
-v1 behaviour for callers and tests.
+Compatibility: ``format_results``, ``format_crm_history``, ``resolve_research_provider``,
+``strip_html`` and ``url_allowed`` keep their v1 behaviour for callers and tests.
 """
 
 from __future__ import annotations

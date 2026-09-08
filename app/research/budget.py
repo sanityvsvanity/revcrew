@@ -1,15 +1,13 @@
-"""Per-account research budget: the cap that makes a pay-per-use stack safe.
+"""Per-account research budget.
 
-Every provider on the stack is metered (Firecrawl credits, Serper queries,
-Browserbase browser-seconds plus the model behind Stagehand) and none of them
-ships a hard spend cap, so the cap lives here. A tool call that would breach
-the budget is refused with a terminal envelope; the model is told to note a gap
-rather than try another angle.
+Every provider on the stack is metered (Firecrawl credits, Serper queries, Browserbase browser-seconds
+plus the model behind Stagehand) and none of them offers a hard spend cap, so the cap lives here. A
+tool call that would exceed the budget is refused with a terminal envelope, and the model is told to
+record a gap rather than try another angle.
 
-Unit prices are the public list prices verified 2026-09-08 (docs/research-stack.md
-has the sources). They exist to turn "credits" and "seconds" into one number a
-budget can be set in; when a plan changes, change ``UNIT_USD`` and the ledger's
-historical rows keep the price they were recorded at.
+Unit prices are the public list prices checked on 2026-09-08 (docs/research-stack.md has the sources).
+They turn credits and seconds into one number a budget can be set in. When a plan changes, update
+``UNIT_USD``; ledger rows keep the price they were recorded at.
 """
 
 from __future__ import annotations

@@ -1,30 +1,26 @@
 """The grounding gate: a brief may only cite what the ledger holds.
 
-The failure this exists for was measured, not imagined: a research trace on the
-predecessor system (2026-08-11) produced a 30-company brief in which 22 rows had
-no tool evidence and every founder LinkedIn URL was invented — plausible,
-well-formatted, and false. No prompt fixed it, because the model was not lying
-so much as completing a pattern. The check has to run *after* generation, in
-code, against the record of what the tools actually returned.
+The failure this addresses was measured on an earlier system in August 2026: a 30-company brief in
+which 22 rows had no tool evidence and every founder LinkedIn URL was invented. The URLs were
+plausible, well formatted and false. The prompt had not stopped it, because the model was completing
+a pattern rather than reporting a fact. The check therefore runs after generation, in code, against
+the record of what the tools returned.
 
 Rules, in the order they apply:
 
-1. Every URL in ``sources`` must normalise to a URL that a successful tool
-   call returned for this run. Others are removed and counted.
-2. URLs embedded in prose fields are treated the same way: an unverifiable
-   link is replaced with ``[unverified link removed]``. The sentence stays —
-   the gate can prove a URL was not returned by a tool; it cannot prove a
-   sentence false.
-3. If the run gathered **no** successful evidence at all, the lists that carry
-   claims (``tech_signals``, ``buying_triggers``, ``key_people``) are moved into
-   ``gaps`` as "unverified": with nothing fetched, nothing in them can be
-   grounded, and an empty field is correct where a guessed one is harmful.
-4. The gate only ever removes or moves; it never writes a new fact. Its report
-   is stored on the research run and shown on the approval card, so a rep sees
-   "7 sources · 2 unverified links removed" next to the score.
+1. Every URL in ``sources`` must normalise to a URL that a successful tool call returned for this
+   run. Others are removed and counted.
+2. URLs embedded in prose fields are treated the same way. An unverifiable link is replaced with
+   ``[unverified link removed]`` and the sentence stays. The gate can prove a URL was not returned by
+   a tool; it cannot prove a sentence false.
+3. If the run gathered no successful evidence at all, the lists that carry claims (``tech_signals``,
+   ``buying_triggers``, ``key_people``) are moved into ``gaps`` as unverified. With nothing fetched,
+   nothing in them can be grounded.
+4. The gate only removes or moves. It never writes a new fact. Its report is stored on the research
+   run and shown on the approval card, so a rep sees "7 sources, 2 unverified links removed" next to
+   the score.
 
-The same function guards ad-hoc copilot research and the eval suite, so the
-one place the rule lives is the one place a test pins it.
+The same function guards ad-hoc copilot research and the eval suite.
 """
 
 from __future__ import annotations
@@ -67,7 +63,7 @@ class GroundingReport:
         }
 
     def line(self) -> str:
-        """One line for a Slack card: what the rep needs to weigh the brief."""
+        """One line for a Slack card."""
         parts = [
             f"{self.sources_kept} source{'s' if self.sources_kept != 1 else ''} verified"
         ]

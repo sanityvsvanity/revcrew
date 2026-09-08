@@ -1,14 +1,13 @@
 """The research run a tool call belongs to.
 
-A run is one account's worth of research: one budget, one ledger slice, one
-grounding report. The pipeline starts a run before it calls the researcher and
-finishes it after the grounding gate. Ad-hoc research from the Slack copilot
-has no pipeline around it, so the tools start an ``adhoc`` run on first use.
+A run is one account's worth of research: one budget, one slice of the ledger, one grounding report.
+The pipeline starts a run before it calls the researcher and finishes it after the grounding gate.
+Ad-hoc research from the Slack copilot has no pipeline around it, so the tools start an ``adhoc`` run
+on first use.
 
-The run id travels in a ``contextvars.ContextVar``: the pipeline step sets it in
-the same coroutine that awaits the agent, and agno awaits tool calls inside
-that coroutine, so every tool sees it without threading an argument through
-the model.
+The run id travels in a ``contextvars.ContextVar``. The pipeline step sets it in the same coroutine
+that awaits the agent, and agno awaits tool calls inside that coroutine, so every tool sees it without
+the model having to pass an argument.
 """
 
 from __future__ import annotations

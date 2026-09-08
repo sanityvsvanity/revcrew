@@ -1,23 +1,20 @@
-"""The evidence ledger: every research fetch is a row, hit or miss.
+"""The evidence ledger. Every research fetch is a row, whether it succeeded or not.
 
-Two tables (``app/schema.sql``):
+Two tables (see ``app/schema.sql``):
 
-- ``research_runs`` — one row per researched account: the budget it ran under,
-  what it spent, and the grounding report the gate produced.
-- ``evidence`` — one row per provider call: tier, provider, kind, URL or query,
-  the content that came back (capped), the outcome and what it cost.
+- ``research_runs``: one row per researched account, with the budget it ran under, what it spent,
+  and the grounding report the gate produced.
+- ``evidence``: one row per provider call, with tier, provider, kind, URL or query, the content that
+  came back (capped), the outcome and the cost.
 
-Why a table and not a log line: the grounding gate reads it (a brief may only
-cite URLs that appear here for its run), the approval card reads it ("7
-sources, 2 unverified links removed"), the digest reads it (research spend per
-day), and a reviewer can answer "where did this fact come from" with one query.
-Failures are rows too — an empty search or a blocked page is evidence of
-absence, and the difference between "nothing found" and "nothing looked for"
-is the whole point (CoS LESSONS P26).
+It is a table rather than a log because four things read it: the grounding gate (a brief may only cite
+URLs that appear here for its run), the approval card ("7 sources, 2 unverified links removed"), the
+digest (research spend per day), and a person asking where a fact came from. Failures are rows too.
+An empty search or a blocked page is evidence of absence, and telling "nothing found" apart from
+"nothing looked for" is one of the reasons the table exists.
 
-Content is capped at ``CONTENT_CAP`` characters per row and reused as a cache:
-a page fetched successfully in the last ``RESEARCH_CACHE_TTL_HOURS`` is served
-from here before any provider is charged.
+Content is capped at ``CONTENT_CAP`` characters per row and doubles as a cache: a page fetched
+successfully within ``RESEARCH_CACHE_TTL_HOURS`` is served from here before any provider is charged.
 """
 
 from __future__ import annotations
@@ -204,7 +201,7 @@ async def record(
 
 
 async def run_urls(run_id: str) -> set[str]:
-    """Every URL a successful tool call returned for this run — the grounding whitelist.
+    """Every URL a successful tool call returned for this run: the grounding whitelist.
 
     Includes search result URLs (stored in ``meta.results``) as well as pages
     fetched, because a search hit is a real, tool-returned URL the model may cite.

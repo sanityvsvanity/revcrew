@@ -1,7 +1,7 @@
 # Skills
 
 Playbooks the copilot loads on demand. Each folder is an
-[Agent Skills](https://code.claude.com/docs/en/skills) package: a `SKILL.md`
+[Agent Skills](https://agentskills.io/specification) package: a `SKILL.md`
 with YAML frontmatter, plus an optional `references/` directory.
 
 Only each skill's `name` and `description` sit in the copilot's system prompt.

@@ -1,23 +1,22 @@
-"""Live integration probes: health is measured, never remembered.
+"""Live integration probes.
 
-``/health`` answers two questions and keeps them apart (CoS LESSONS P29, P40):
+``/health`` answers two separate questions:
 
-- **Is the process up?** Always cheap: the app answered, the database
-  answered. Railway's healthcheck reads only this.
-- **Which integrations work right now?** ``/health?probe=1`` runs one real,
-  read-only call per configured integration and reports one of four states
-  per integration — not a boolean:
+- Is the process up? This is always cheap: the app answered and the database answered. Railway's
+  healthcheck reads only this.
+- Which integrations work right now? ``/health?probe=1`` makes one real, read-only call per
+  configured integration and reports one of four states for each:
 
-  | state          | meaning                                                  |
-  |----------------|----------------------------------------------------------|
-  | ``ok``         | configured and a live call succeeded                     |
-  | ``degraded``   | configured, reachable, but the call was refused (auth, credit, rate limit) |
-  | ``down``       | configured and unreachable or erroring                   |
-  | ``unconfigured``| no credentials; the mock or the next tier serves instead |
+  | state            | meaning                                                                    |
+  |------------------|----------------------------------------------------------------------------|
+  | ``ok``           | configured and a live call succeeded                                       |
+  | ``degraded``     | configured and reachable, but the call was refused (auth, credit, rate limit) |
+  | ``down``         | configured and unreachable or erroring                                     |
+  | ``unconfigured`` | no credentials; the mock or the next tier serves instead                   |
 
-A probe is never an agent's opinion. It is a deterministic call with a timeout,
-run when asked, and the result is not cached between requests. Slack and
-HubSpot probes use the cheapest authenticated read each API has.
+A probe is a deterministic call with a timeout, run when asked, and the result is not cached between
+requests. Slack and HubSpot probes use the cheapest authenticated read each API has. Agents do not
+report system health; an agent's memory of a failure is not a measurement.
 """
 
 from __future__ import annotations
@@ -156,13 +155,30 @@ async def probe_model() -> tuple[str, str]:
                 "anthropic-version": "2023-06-01",
             },
         )
+
+    import httpx
+
     host = settings.OLLAMA_HOST or "https://ollama.com"
     headers = (
         {"Authorization": f"Bearer {settings.OLLAMA_API_KEY}"}
         if settings.OLLAMA_API_KEY
         else {}
     )
-    return await _get(f"{host.rstrip('/')}/api/tags", headers)
+    async with httpx.AsyncClient(timeout=PROBE_TIMEOUT_S) as client:
+        resp = await client.get(f"{host.rstrip('/')}/api/tags", headers=headers)
+    if resp.status_code != 200:
+        return _state_from_http(resp.status_code), f"HTTP {resp.status_code}"
+    names = {m.get("name", "") for m in resp.json().get("models", [])}
+    bare = {n.split(":")[0] for n in names}
+    wanted = [settings.OLLAMA_MODEL_MAIN, settings.OLLAMA_MODEL_FAST]
+    missing = [w for w in wanted if w not in names and w.split(":")[0] not in bare]
+    if missing:
+        sample = ", ".join(sorted(names)[:8])
+        return (
+            DEGRADED,
+            f"configured model(s) not on {host}: {', '.join(missing)}. Available: {sample}",
+        )
+    return OK, f"{host} serves {', '.join(wanted)}"
 
 
 PROBES: dict[str, Callable[[], Awaitable[tuple[str, str]]]] = {

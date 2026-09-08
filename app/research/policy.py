@@ -2,23 +2,19 @@
 
 Three decisions, all made in code before any provider is called:
 
-1. **Denied domains** are never fetched by any tier. LinkedIn heads the list:
-   LinkedIn's terms prohibit automated collection and the platform enforces it
-   (hiQ ended with an injunction in 2022; Proxycurl was shut down under one in
-   July 2026). Social platforms and review sites with the same terms follow.
-   ``RESEARCH_DENY_DOMAINS`` extends the list; nothing removes the defaults.
-2. **The browser tier is opt-in.** A headless browser is the most expensive and
-   the most intrusive tool on the stack, so it runs only when
-   ``RESEARCH_BROWSER_ENABLED`` is true, only on a domain that is not denied,
-   and only after a cheaper tier returned a JavaScript shell or was blocked.
-3. **robots.txt is honoured on direct fetches.** Firecrawl honours it on its
-   side; the basic ``httpx`` tier checks it here, cached per host. A robots
-   fetch that fails is recorded and treated as *allow* (the common convention),
-   never as a silent skip.
+1. Denied domains are never fetched by any tier. LinkedIn heads the list. Its terms prohibit
+   automated collection and it enforces them: hiQ v. LinkedIn ended with an injunction in 2022, and
+   Proxycurl was shut down under one in July 2026. Social platforms and review sites with the same
+   terms follow. ``RESEARCH_DENY_DOMAINS`` extends the list; nothing removes the defaults.
+2. The browser tier is opt-in. A headless browser is the most expensive and the most intrusive tool
+   on the stack, so it runs only when ``RESEARCH_BROWSER_ENABLED`` is true, only on a domain that is
+   not denied, and only after a cheaper tier returned a JavaScript shell or was blocked.
+3. robots.txt is honoured on direct fetches. Firecrawl honours it on its side; the basic ``httpx`` tier
+   checks it here, cached per host. A robots fetch that fails is logged and treated as allow, which
+   is the usual convention.
 
-Every fetch also carries a ``tos_class`` into the ledger so a reviewer can see,
-per row, what kind of source it was: ``public_web``, ``public_api``,
-``own_crm`` or ``demo_fixture``.
+Every fetch also carries a ``tos_class`` into the ledger so a reviewer can see, per row, what kind of
+source it was: ``public_web``, ``public_api``, ``own_crm`` or ``demo_fixture``.
 """
 
 from __future__ import annotations

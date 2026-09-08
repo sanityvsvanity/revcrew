@@ -1,33 +1,27 @@
-"""Tool contract: every tool the crew holds returns a truthful envelope.
+"""Tool contract: every tool the crew holds returns an envelope the model and the tests can read.
 
-Adopted from the Chief-of-Staff copilot's hardening pass (its LESSONS P15 and
-P30): two production incidents there came from tools that either raised (the
-model saw a raw exception) or returned a failure with no signal that it was
-*permanent*, so the model re-called the same tool with the same arguments until
-the tool-call limit ended the turn.
+This came out of two production incidents on an earlier system: tools either raised (the model saw a
+raw exception) or returned a failure with no signal that it was permanent, so the model called the
+same tool with the same arguments until the tool-call limit ended the turn.
 
 The rules this module enforces:
 
 1. A tool never raises into the model. Failures become
-   ``{"ok": false, "error": ..., "error_class": "terminal"|"transient",
-   "do_not_retry": bool}``.
-2. Failures are classified once, by code. ``classify_error`` is exported so the
-   pipeline can obey the classification instead of asking a model to
-   re-adjudicate it.
-3. An identical failure repeated ``FAIL_THRESHOLD`` times inside
-   ``FAIL_WINDOW_S`` trips a breaker: the wrapper short-circuits with
-   ``do_not_retry`` instead of making the same doomed call again.
-4. A tool that already returned an envelope is passed through untouched, so a
-   tool can refuse (budget exhausted, domain denied) with its own precise reason.
+   ``{"ok": false, "error": ..., "error_class": "terminal"|"transient", "do_not_retry": bool}``.
+2. Failures are classified once, in code. ``classify_error`` is exported so the pipeline can act on
+   the classification instead of asking a model to judge it again.
+3. An identical failure repeated ``FAIL_THRESHOLD`` times inside ``FAIL_WINDOW_S`` trips a breaker:
+   the wrapper refuses with ``do_not_retry`` instead of making the same call again.
+4. A tool that already returned an envelope is passed through untouched, so a tool can refuse (budget
+   exhausted, domain denied) with its own reason.
 
 Usage::
 
     @wrap_tool(toolkit="research")
     async def fetch_page(url: str) -> dict: ...
 
-    ResearchTools registers the wrapped function; the agent sees the original
-    name, signature and docstring (functools.wraps), so agno builds the same
-    schema it would for the bare function.
+The wrapped function keeps the original name, signature and docstring (``functools.wraps``), so agno
+builds the same schema it would for the bare function.
 """
 
 from __future__ import annotations

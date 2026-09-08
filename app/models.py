@@ -101,13 +101,13 @@ def _build_ollama_model(role: str) -> Model:
         kwargs["api_key"] = settings.OLLAMA_API_KEY
 
     if is_ollama_cloud():
-        # Ollama Cloud returns HTTP 200 and silently drops the API-level
-        # structured-output parameter (measured 2026-07-31 on qwen/glm/nemotron
-        # by the predecessor system; its LESSONS P36). agno trusts the class
-        # flag and never engages its own JSON-in-prompt fallback, so every
-        # output_schema agent would fail on attempt 1. Flipping the flag puts
-        # the schema in the prompt and parses the text — verified to return
-        # real Pydantic objects on those models.
+        # Ollama Cloud returns HTTP 200 and drops the API-level structured-output
+        # parameter without an error (measured 2026-07-31 on qwen, glm and
+        # nemotron models on an earlier system). agno trusts the class flag and
+        # never uses its own JSON-in-prompt fallback, so every output_schema
+        # agent would fail on the first attempt. Turning the flag off puts the
+        # schema in the prompt and parses the text, which returns real Pydantic
+        # objects on those models.
         kwargs["supports_native_structured_outputs"] = False
         kwargs["supports_json_schema_outputs"] = False
 
@@ -124,12 +124,12 @@ def is_ollama_cloud() -> bool:
 def pipeline_agent_kwargs() -> dict[str, Any]:
     """Shared constructor kwargs for the four single-purpose pipeline agents.
 
-    - No history and no memory: a pipeline agent starts every run from its
-      input and its tools. A research agent that replayed prior runs once booted
+    - No history and no memory. A pipeline agent starts every run from its
+      input and its tools. A research agent that replayed prior runs once started
       at 145K prompt tokens with another prospect's facts in context.
     - The date arrives labelled. ``add_datetime_to_context`` with a format that
-      spells the weekday means the model never does calendar arithmetic; the
-      predecessor answered "Sun Sep 7" for a Monday when it was handed digits.
+      spells the weekday means the model does no calendar arithmetic. An earlier
+      system answered "Sun Sep 7" for a Monday when it was given digits only.
     """
     return {
         "add_history_to_context": False,

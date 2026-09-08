@@ -1,18 +1,14 @@
 """Workflow pipelines: lead_pipeline and reply_triage.
 
-lead_pipeline ends at the approval gate. That is the point of the gate: the
-workflow's last act is to write the ``approvals`` row and post the card, and
-the only path from there to HubSpot or Instantly is a human clicking Approve
-(``app/webhooks/slack.py`` → ``app/push.py``). An earlier version ran a
-``push_and_log`` step immediately after opening the gate, so the live intake
-path pushed a campaign before anyone had clicked anything — a gate that the
-scheduled path stepped around is not a gate (CoS LESSONS P43).
-``tests/test_pipeline_shape.py`` pins this.
+lead_pipeline ends at the approval gate. The workflow's last act is to write the ``approvals`` row and
+post the card, and the only path from there to HubSpot or Instantly is a human clicking Approve
+(``app/webhooks/slack.py`` then ``app/push.py``). An earlier version ran a ``push_and_log`` step
+immediately after opening the gate, so the live intake path pushed a campaign before anyone had
+clicked. ``tests/test_pipeline_shape.py`` pins the current shape.
 
-The research step is a custom executor rather than a bare agent step so the
-research run (budget, ledger, grounding) wraps the agent call: it opens the
-run, sets the context the tools read, awaits the researcher, grounds the
-brief against the ledger, records the report and hands the qualifier a brief
+The research step is a custom executor rather than a bare agent step so the research run (budget,
+ledger, grounding) wraps the agent call. It opens the run, sets the context the tools read, awaits the
+researcher, grounds the brief against the ledger, records the report, and hands the qualifier a brief
 that only cites what a tool returned.
 """
 
@@ -202,7 +198,7 @@ async def _classify_reply_step(step_input: StepInput) -> dict:
     """Classify an inbound reply using a fast model.
 
     If the primary (Ollama) model fails or returns unusable output, retry once
-    on Anthropic when a key is present — logged, never silent.
+    on Anthropic when a key is present. The retry is logged.
     """
     from agno.agent import Agent
 
@@ -211,7 +207,7 @@ async def _classify_reply_step(step_input: StepInput) -> dict:
 
     reply_text = str(step_input.input or "")
 
-    # Prospect text is untrusted — fence it unless the caller already did
+    # Prospect text is untrusted. Fence it unless the caller already did
     # (handle_reply fences before invoking the workflow).
     if "<crm_data" in reply_text:
         reply_text = reply_text[:2000]

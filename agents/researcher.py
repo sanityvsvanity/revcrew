@@ -1,9 +1,8 @@
-"""Researcher agent: researches target accounts and produces AccountBrief.
+"""Researcher agent: researches target accounts and produces an AccountBrief.
 
-Context hygiene, learned from a research agent that booted at 145K prompt
-tokens before its first tool call because it replayed prior runs: the
-researcher keeps no history and no memory. Every account starts from the lead
-and the tools, and nothing from a previous prospect can leak into this one.
+The researcher keeps no history and no memory. An earlier research agent started at 145K prompt tokens
+before its first tool call because it replayed prior runs, and facts from one prospect leaked into the
+next. Every account here starts from the lead and the tools.
 """
 
 from agno.agent import Agent

@@ -1,17 +1,15 @@
-"""Tier 3 — browser hands: Stagehand v4 on a Browserbase session.
+"""Tier 3: a real browser. Stagehand v4 on a Browserbase session.
 
-The most capable and most expensive tier, so it is the last resort and it is
-bounded on every axis: one session per call, a hard session timeout, no
-``keep_alive``, no recording, ``user_metadata`` tagging each session with the
-research run so the Browserbase dashboard and our ledger agree on what was
-spent. The stack never types credentials, never solves CAPTCHAs on purpose
-(``solve_captchas=False``) and never opens a denied domain (policy.py).
+This is the most capable and most expensive tier, so it is the last resort and it is bounded on every
+axis: one session per call, a hard session timeout, no ``keep_alive``, no recording, and
+``user_metadata`` tagging each session with the research run so the Browserbase dashboard and the
+ledger agree on what was spent. The stack never types credentials, never solves CAPTCHAs
+(``solve_captchas=False``) and never opens a denied domain (see policy.py).
 
-Why Stagehand rather than raw Playwright: ``extract`` takes a schema and returns
-a validated object, so a careers page or a pricing page becomes fields, not a
-40 KB text blob the model has to read. The Python SDK (``stagehand`` 4.x) talks
-to Browserbase's hosted service — no Node binary in the image. Omitting
-``STAGEHAND_MODEL`` uses Browserbase's Model Gateway, billed to the session.
+Stagehand rather than raw Playwright because ``extract`` takes a schema and returns a validated
+object, so a careers or pricing page becomes fields instead of a 40 KB text blob. The Python SDK
+(``stagehand`` 4.x) talks to Browserbase's hosted service, so there is no Node binary in the image.
+Leaving ``STAGEHAND_MODEL`` unset uses Browserbase's Model Gateway, billed to the session.
 """
 
 from __future__ import annotations

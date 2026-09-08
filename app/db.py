@@ -1,12 +1,10 @@
 """Database connection pool and schema initialization.
 
-One pool per process — and per event loop. psycopg's async pool is bound to
-the loop that opened it; a pool created under one ``asyncio.run`` and reused
-under another raises ``PoolClosed`` (or hangs) on first use. ``get_pool``
-therefore remembers which loop opened the pool and rebuilds it when the
-caller's loop differs or the pool was closed behind our back. In production
-there is exactly one loop, so this costs a comparison; in tests and scripts
-it is the difference between green and order-dependent failures.
+One pool per process, and per event loop. psycopg's async pool is bound to the loop that opened it, and
+a pool created under one ``asyncio.run`` and reused under another raises ``PoolClosed`` on first use.
+``get_pool`` therefore remembers which loop opened the pool and rebuilds it when the caller's loop
+differs or the pool was closed. In production there is one loop, so this costs a comparison. In tests
+and scripts it prevents order-dependent failures.
 """
 
 from __future__ import annotations

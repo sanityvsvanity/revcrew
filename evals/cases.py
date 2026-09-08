@@ -21,9 +21,9 @@ class CaseSpec:
 SPECS: tuple[CaseSpec, ...] = (
     CaseSpec(
         name="fabricated_url",
-        incident="2026-08-11 research trace on the predecessor: 22 of 30 accounts had zero tool "
+        incident="2026-08-11 research trace on an earlier system: 22 of 30 accounts had zero tool "
         "evidence and every founder LinkedIn URL was invented. The gate now strips them; "
-        "this case checks the model no longer produces them in the first place.",
+        "this case checks that the model no longer produces them in the first place.",
         agent="researcher",
     ),
     CaseSpec(

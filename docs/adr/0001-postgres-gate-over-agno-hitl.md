@@ -1,42 +1,45 @@
-# ADR 0001 — Keep the Postgres approval gate; end the workflow at it
+# ADR 0001: keep the Postgres approval gate and end the workflow at it
 
-Date: 2026-09-08 · Status: accepted
+Date: 2026-09-08. Status: accepted.
 
 ## Context
 
-agno 3.0 ships workflow human-in-the-loop as a first-class primitive: `Step(human_review=HumanReview(
-requires_confirmation=True))` pauses a workflow run, AgentOS exposes `/workflows/{id}/runs/{run_id}/continue`,
-and `QueueConfig(durable=True)` makes the paused run survive a deploy. RevCrew's gate predates this: a
-row in `approvals` with the full payload, a Block Kit card with Approve / Edit / Reject / View emails,
-reminders, TTL expiry, an approver allowlist, and a resumable push with a Retry button.
+agno 3.0 has workflow human-in-the-loop built in. `Step(human_review=HumanReview(requires_confirmation=True))`
+pauses a workflow run, AgentOS exposes `/workflows/{id}/runs/{run_id}/continue`, and
+`QueueConfig(durable=True)` keeps a paused run across a deploy.
 
-The v1 `lead_pipeline` also had a defect: a `push_and_log` step ran immediately after `approval_gate`,
-so the live intake path (`/api/leads` → `lead_received` → `lead_pipeline.arun`) created a campaign and
-CRM records before anyone clicked. The demo never hit it because the demo drives the beats by hand.
+RevCrew's gate predates this. It is a row in `approvals` holding the full payload, a Block Kit card with
+Approve, Edit, Reject and View emails, reminders, expiry, an approver allowlist, and a push that can be
+retried from where it failed.
+
+The v1 `lead_pipeline` also had a defect. A `push_and_log` step ran immediately after `approval_gate`,
+so the live intake path (`/api/leads` to `lead_received` to `lead_pipeline.arun`) created a campaign
+and CRM records before anyone had clicked. The demo never showed it because the demo drives the beats
+by hand.
 
 ## Decision
 
 1. The workflow ends at `approval_gate`. The only path to HubSpot or Instantly is a human Approve in
-   Slack calling `push_approved_run`. `tests/test_pipeline_shape.py` pins the shape.
+   Slack, which calls `push_approved_run`. `tests/test_pipeline_shape.py` pins this.
 2. The gate stays in Postgres for v2. agno's `HumanReview` is not adopted yet.
 
-## Why not agno's HITL now
+## Comparison
 
-| agno `HumanReview` gives | RevCrew's gate has that agno's does not |
+| agno `HumanReview` provides | RevCrew's gate provides that agno's does not |
 |---|---|
-| Pause/continue in the framework, visible in AgentOS | Edit-in-place modal with edit history; View emails; Reject with reason rolled into the digest |
-| Durable across deploys with `QueueConfig(durable=True)` (needs the job queue) | Zero-key demo: the full gate runs against local Postgres with mocks |
-| One continue endpoint | Reminders after 24 h, expiry after 72 h, approver allowlist, Retry that resumes a half-failed push |
+| Pause and continue inside the framework, visible in AgentOS | An Edit modal that updates the card in place and keeps an edit history; View emails; Reject with a reason that rolls into the digest |
+| Durability across deploys with `QueueConfig(durable=True)`, which needs the job queue | A zero-key demo where the full gate runs against local Postgres with mocks |
+| One continue endpoint | Reminders after 24 hours, expiry after 72, an approver allowlist, and a Retry that resumes a half-failed push |
 
-Adopting `HumanReview` means re-implementing the card UX on agno's Slack interface or losing it, and
-running AgentOS's durable queue in the demo. The card UX *is* the product's demo. The trade is worth
-making when a second chat surface (Teams, web) needs the same gate; then the framework's pause is
-the shared primitive and the card becomes a renderer. Until then, one gate in Postgres, ending the
-workflow, is the smaller and more honest system.
+Adopting `HumanReview` would mean rebuilding the card on agno's Slack interface or dropping those
+features, and running AgentOS's durable queue in the demo. The card is what the demo shows. The switch
+becomes worth it when a second chat surface (Teams, a web UI) needs the same gate; the framework pause
+then becomes the shared primitive and the Slack card becomes one renderer of it.
 
 ## Consequences
 
-- A lead that scores above threshold produces exactly one `approvals` row and one card, and nothing else.
-- `_approval_gate_step` now carries the grounded brief's sources, gaps and research report into the
-  payload, so the card can show evidence.
-- Re-evaluate when: agno's Slack interface renders `HumanReview` cards with custom blocks, or a second surface appears.
+- A lead that scores above threshold produces one `approvals` row and one card, and nothing else.
+- `_approval_gate_step` carries the grounded brief's sources, gaps and research report into the payload
+  so the card can show evidence.
+- Revisit when agno's Slack interface can render `HumanReview` cards with custom blocks, or when a second
+  surface appears.

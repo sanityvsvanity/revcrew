@@ -1,17 +1,16 @@
-"""Tier 0 — free, deterministic buying signals. No key, no model, no scraping.
+"""Tier 0: free, deterministic buying signals. No key, no model, no scraping.
 
-Two sources a B2B researcher trusts more than any search snippet, both served
-as public JSON or RSS by the platform itself:
+Two sources that a B2B researcher trusts more than a search snippet, both served as public JSON or
+RSS by the platform itself:
 
-- **Open roles** from the three applicant-tracking systems most growth-stage
-  companies publish through: Greenhouse (``boards-api.greenhouse.io``), Lever
-  (``api.lever.co``) and Ashby (``api.ashbyhq.com/posting-api``). A company
-  hiring three SDRs and a RevOps lead is a buying signal that no summary can
-  fake, and the board token is visible on the company's own careers page.
-- **Recent news** from Google News RSS, scoped to the company name.
+- Open roles from the three applicant-tracking systems most growth-stage companies publish through:
+  Greenhouse (``boards-api.greenhouse.io``), Lever (``api.lever.co``) and Ashby
+  (``api.ashbyhq.com/posting-api``). A company hiring three SDRs and a RevOps lead is a buying signal,
+  and the board token is visible on the company's own careers page.
+- Recent news from Google News RSS, scoped to the company name.
 
-Everything here is parsed by code and returned as data. The model decides what
-it means; it never decides what was found.
+Everything here is parsed by code and returned as data. The model decides what it means; it does not
+decide what was found.
 """
 
 from __future__ import annotations

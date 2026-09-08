@@ -1,10 +1,9 @@
-"""Tier 1 — web search. Serper (Google SERP) → Firecrawl search → DuckDuckGo.
+"""Tier 1: web search. Serper, then Firecrawl search, then DuckDuckGo.
 
-All three return the same shape: ``results: [{title, url, snippet}]``. Serper
-is first because it is the cheapest metered SERP with a stable schema (≈$0.001
-per query, prepaid). Firecrawl search is second because a Firecrawl key is the
-one most operators already have. DuckDuckGo is the keyless floor: best effort,
-rate-limited, fine for evaluation.
+All three return the same shape: ``results: [{title, url, snippet}]``. Serper comes first because it is
+the cheapest metered search with a stable schema (about $0.001 per query, prepaid). Firecrawl search
+is second because a Firecrawl key is the one most operators already have. DuckDuckGo is the keyless
+fallback: best effort and rate-limited, adequate for evaluation.
 """
 
 from __future__ import annotations

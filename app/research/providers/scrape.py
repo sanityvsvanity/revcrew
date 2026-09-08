@@ -1,16 +1,14 @@
-"""Tier 2 — turn a URL into readable text. Firecrawl → Jina Reader → direct HTTP.
+"""Tier 2: turn a URL into readable text. Firecrawl, then Jina Reader, then direct HTTP.
 
-Firecrawl (``firecrawl-py`` 4.x, v2 API) is first when its key is set: it
-renders JavaScript, rotates proxies on a block, honours robots.txt and caches
-(``max_age``: a page it fetched in the last 48h costs nothing new). Jina Reader
-(``r.jina.ai``) is the keyless middle: clean markdown for most public pages.
-The direct ``httpx`` fetch is the floor, and the only tier where *we* are the
-crawler, so it is the one that checks robots.txt itself.
+Firecrawl (``firecrawl-py`` 4.x, v2 API) comes first when its key is set. It renders JavaScript,
+rotates proxies on a block, honours robots.txt and caches: with ``max_age`` a page it fetched in the
+last 48 hours costs nothing new. Jina Reader (``r.jina.ai``) is the keyless middle option and returns
+clean markdown for most public pages. The direct ``httpx`` fetch is the fallback and the only tier
+where this app is the crawler, so it is the one that checks robots.txt itself.
 
-``extract`` is Firecrawl's JSON format: one page, one schema, 5 credits. It is
-the deterministic cousin of Firecrawl's ``/agent`` endpoint, which is not used
-here on purpose — its default ceiling is 2,500 credits per call and it navigates
-on its own, which is the wrong shape for a per-account budget.
+``firecrawl_extract`` uses Firecrawl's JSON format: one page, one schema, 5 credits. Firecrawl's
+``/agent`` endpoint is not used here. Its default ceiling is 2,500 credits per call and it navigates on
+its own, which does not fit a per-account budget.
 """
 
 from __future__ import annotations
