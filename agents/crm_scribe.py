@@ -2,7 +2,7 @@
 
 from agno.agent import Agent
 
-from app.models import get_model
+from app.models import get_model, pipeline_agent_kwargs
 from app.prompts.crm_scribe import CRM_SCRIBE_INSTRUCTIONS
 from app.toolkits.crm_tools import (
     hubspot_create_deal,
@@ -26,4 +26,5 @@ crm_scribe = Agent(
         hubspot_create_task,
         hubspot_search_contact,
     ],
+    **pipeline_agent_kwargs(),
 )

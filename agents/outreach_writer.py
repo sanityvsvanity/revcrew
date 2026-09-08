@@ -2,7 +2,7 @@
 
 from agno.agent import Agent
 
-from app.models import get_model
+from app.models import get_model, pipeline_agent_kwargs
 from app.prompts.outreach_writer import OUTREACH_WRITER_INSTRUCTIONS
 from app.schemas import SequenceDraft
 
@@ -12,4 +12,5 @@ outreach_writer = Agent(
     description="Drafts personalized outreach email sequences based on account briefs and ICP scores.",
     instructions=OUTREACH_WRITER_INSTRUCTIONS,
     output_schema=SequenceDraft,
+    **pipeline_agent_kwargs(),
 )
