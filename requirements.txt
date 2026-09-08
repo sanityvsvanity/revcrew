@@ -13,6 +13,7 @@ apscheduler==3.11.3
 pydantic[email]==2.13.4
 pydantic-settings==2.14.2
 python-dotenv==1.2.2
+python-multipart==0.0.32  # AgentOS form routes
 pyyaml==6.0.3
 
 # Research stack (every provider is optional at runtime; the tier degrades)
