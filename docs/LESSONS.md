@@ -21,6 +21,8 @@ enforces it; a rule without an enforcer is a wish.
 | L13 | An orientation doc claimed a feature the pinned framework version did not have | Docs written against idioms, not the installed version | Pin the framework exactly; state the version in the README; read the installed source before writing a rule about it. | `requirements.txt` (`agno==3.0.7`), this file |
 | L14 | A hand-maintained copy of a fact the upstream payload already carried defaulted to wrong | Config and heuristics added where the API already said it | Read the upstream schema (SDK types, API docs) before adding an env var or a heuristic. Job boards, news feeds and Firecrawl metadata already state what earlier code inferred. | `app/research/providers/*` (typed SDK fields, no inference) |
 
+| L15 | The browser tier "worked" in code review and failed three ways on its first real session | An SDK surface written from docs, not from a run | Run every third-party adapter once against the real service before it ships. Stagehand 4.0.2, measured 2026-09-08: pages hang off `stagehand.browser.context`, not `stagehand.context`; `extract(timeout=)` is milliseconds; the Model Gateway compiles the schema in strict mode, so every field must be required; link-ish fields come back as accessibility node ids, not URLs. | `app/research/providers/browser.py`, `docs/research-stack.md` "Verified live" |
+
 ## Framework notes (agno 3.0.7, verified against the installed source)
 
 - **Async tools live in `Toolkit.async_functions`.** `Toolkit.register` puts a coroutine function

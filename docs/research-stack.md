@@ -150,6 +150,20 @@ facts.
   2024, with the 2026 exposure draft broadening "personal information") every stored row carries
   its source URL, fetch time and `tos_class`, and rows expire with `RETENTION_DAYS`.
 
+## Verified live (2026-09-08)
+
+Measured, not inferred. Both runs used the code on this branch.
+
+| Run | Model / providers | Result |
+|---|---|---|
+| `scripts/research.py canva.com --company Canva` | glm-5.2 on Ollama Cloud (schema in prompt), Firecrawl search + scrape, Tier 0 boards + news, mock CRM | 14 ledger rows, 11 Firecrawl credits, **$0.0091**, 13 sources verified, 0 removed, exit 0. Three ATS guesses correctly `empty`; two homepage fetches served from Firecrawl's cache at 0 credits; four honest gaps including "careers page redirects to lifeatcanva.com". |
+| `browser.extract("https://www.canva.com/pricing/")` | Stagehand 4.0.2 on Browserbase, Model Gateway | `ok` in 23.3 browser-seconds; four plans with prices and audiences as structured facts; 11,760 prompt tokens on the gateway side. Three defects found and fixed on the way (LESSONS L15). |
+| `firecrawl_extract("https://www.canva.com/about/", COMPANY_FACTS_SCHEMA)` | Firecrawl v2 JSON format | `ok` in 2.7 s for 5 credits: `what_they_do`, one product, five named customers (Zoom, Bloomingdale's, Danone, Airbnb, Salesforce); stack, headcount, pricing and leaders left empty rather than guessed. |
+
+Not exercised live: Serper (no key on this machine; adapter mirrors the documented request/response
+and is unit-tested through the router), Jina Reader with a key, Lever/Ashby on a company that has
+one (Greenhouse/Lever/Ashby parsers are fixture-tested against the documented shapes).
+
 ## Failure behaviour
 
 | Condition | What happens | Where it shows |

@@ -27,21 +27,21 @@ SESSION_TIMEOUT_S = 120
 
 
 class PageFacts(BaseModel):
-    """What the browser tier is asked to pull from a page, whatever the page."""
+    """What the browser tier is asked to pull from a page, whatever the page.
 
-    title: str = Field(default="", description="Page title")
-    summary: str = Field(
-        default="", description="2-3 sentence summary of what the page says"
-    )
+    Every field is required (no defaults): the Model Gateway compiles this to a
+    strict response schema and rejects any property missing from ``required``.
+    Empty lists and strings are the model's way of saying "nothing here".
+    """
+
+    title: str = Field(description="Page title")
+    summary: str = Field(description="2-3 sentence summary of what the page says")
     facts: list[str] = Field(
-        default_factory=list,
-        description="Concrete facts stated on the page: numbers, names, dates, products",
+        description="Concrete facts stated on the page: numbers, names, dates, products"
     )
-    people: list[str] = Field(
-        default_factory=list, description="People named with their role, if any"
-    )
+    people: list[str] = Field(description="People named with their role; empty if none")
     links: list[str] = Field(
-        default_factory=list, description="Absolute URLs of pages worth reading next"
+        description="Absolute URLs of pages worth reading next; empty if none"
     )
 
 
@@ -77,9 +77,13 @@ async def extract(
             user_metadata={"app": "revcrew", "research_run": run_id, "domain": domain},
         )
         stagehand = await Stagehand.create(browser=browser, **_model_kwargs())
-        page = await stagehand.context.new_page(url)
+        # Pages hang off the browser's context (stagehand.browser.context); the
+        # Stagehand object itself only exposes act/extract/observe.
+        page = await stagehand.browser.context.new_page(url)
         await page.wait_for_load_state("domcontentloaded", timeout=30_000)
-        result = await stagehand.extract(instruction, PageFacts, page=page, timeout=60)
+        result = await stagehand.extract(
+            instruction, PageFacts, page=page, timeout=60_000
+        )  # ms
         data = getattr(result, "data", None) or result
         facts = (
             data
@@ -106,7 +110,9 @@ async def extract(
             "error": "" if content else "browser extraction returned no facts",
             "meta": {
                 "session_id": getattr(browser, "session_id", None),
-                "links": facts.links[:10],
+                # snapshot-mode extraction returns accessibility node ids for link-ish
+                # fields; keep only real URLs so next_links is never a list of "4-15"
+                "links": [link for link in facts.links if link.startswith("http")][:10],
                 "model": settings.STAGEHAND_MODEL or "browserbase-gateway",
             },
         }

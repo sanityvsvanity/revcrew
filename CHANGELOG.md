@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — follow-ups
+
+- Google News RSS returns redirect URLs (`news.google.com/rss/articles/…`); resolve them to the
+  publisher URL before they reach the ledger so citations read well on a card.
+- Serper and Lever/Ashby live paths are fixture-tested only; run them once with real keys and a
+  company that uses them, then record the result in `docs/research-stack.md`.
+- agno `HumanReview` on the approval step when a second chat surface arrives (ADR 0001).
+- `ruff format` the whole repository in one commit; CI checks format only on the v2 modules today.
+
 ## 2.0.0 — 2026-09-08 — evidence-grade research
 
 Headline: the researcher now runs on a tiered, budgeted, ledgered research stack, and a grounding
