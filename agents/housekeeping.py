@@ -84,6 +84,24 @@ async def _daily_digest():
 
     lines.append(f"📝 *CRM writes:* {crm_writes}")
 
+    # Research spend: what the evidence stack did and cost since midnight
+    # (metered providers, no native spend cap — the digest is where the number
+    # is seen every day, not once a month on an invoice).
+    from datetime import datetime, time as dtime, timezone
+    from zoneinfo import ZoneInfo
+
+    from app.research.evidence import spend_since
+
+    tz = ZoneInfo(settings.digest_tz)
+    midnight = datetime.combine(datetime.now(tz).date(), dtime.min, tzinfo=tz).astimezone(timezone.utc)
+    spend = await spend_since(midnight)
+    if spend["runs"]:
+        lines.append(
+            f"🔎 *Research:* {spend['runs']} account(s), {spend['calls']} lookups, "
+            f"${spend['cost_usd']:.2f}"
+            + (f", {spend['failures']} failed lookup(s)" if spend["failures"] else "")
+        )
+
     # Needs attention section
     attention: list[str] = []
     if dead_letters:
@@ -128,6 +146,16 @@ async def _purge_old_data():
             "AND resolved_at < NOW() - %s * INTERVAL '1 day'",
             (settings.RETENTION_DAYS,),
         )
+        # Evidence rows hold page text from third-party sites; they are a
+        # cache and an audit trail, not an archive. Same retention as writes.
+        await conn.execute(
+            "DELETE FROM evidence WHERE fetched_at < NOW() - %s * INTERVAL '1 day'",
+            (settings.RETENTION_DAYS,),
+        )
+        await conn.execute(
+            "DELETE FROM research_runs WHERE started_at < NOW() - %s * INTERVAL '1 day'",
+            (settings.RETENTION_DAYS,),
+        )
     print(f"[housekeeping] Purged data older than {settings.RETENTION_DAYS} days")
 
 
@@ -141,7 +169,7 @@ scheduler.add_job(
 
 scheduler.add_job(
     _daily_digest,
-    trigger=CronTrigger(hour=settings.DIGEST_HOUR, minute=0, timezone=settings.DIGEST_TZ),
+    trigger=CronTrigger(hour=settings.DIGEST_HOUR, minute=0, timezone=settings.digest_tz),
     id="daily_digest",
     replace_existing=True,
 )

@@ -275,6 +275,7 @@ async def _handle_edit_submit(run_id: str, payload: dict, user_name: str):
         data.get("draft") or {},
         data.get("deal") or {},
         data.get("score"),
+        research=data.get("research"),
     )
 
     message_ts = updated.get("message_ts")
